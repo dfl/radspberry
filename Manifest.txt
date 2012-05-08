@@ -1,0 +1,8 @@
+.autotest
+History.txt
+Manifest.txt
+README.txt
+Rakefile
+bin/radspberry
+lib/radspberry.rb
+test/test_radspberry.rb
