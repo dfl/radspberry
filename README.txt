@@ -16,6 +16,7 @@ A real-time audio dsp library for ruby based on ffi-portaudio
 == EXAMPLE USE:
 
 require 'radspberry'
+include DSP
 
 Speaker[ SuperSaw.new ]
 Speaker.synth[ :spread => 0.5, :freq => 120 ]
