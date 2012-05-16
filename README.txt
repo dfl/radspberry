@@ -31,7 +31,8 @@ Speaker.mute
 
 * brew install portaudio
 * gem install ffi-portaudio
-* gem install radspberry
+* git clone git@github.com:dfl/radspberry.git
+* rake install_gem
 
 == LICENSE:
 
