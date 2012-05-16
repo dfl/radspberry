@@ -9,15 +9,16 @@ require 'hoe'
 # Hoe.plugin :racc
 # Hoe.plugin :rcov
 Hoe.plugin :rubyforge
+Hoe.plugin :git
+Hoe.plugin :bundler
 
 Hoe.spec 'radspberry' do
-  # HEY! If you fill these out in ~/.hoe_template/Rakefile.erb then
-  # you'll never have to touch them again!
-  # (delete this comment too, of course)
-
   developer('David Lowenfels', 'david@internautdesign.com')
+  extra_deps << ['ffi-portaudio', '~> 0.1.2']
+  # extra_deps << ['unimidi', '~> 0.3.3']
+  extra_deps << ['portmidi', '~> 0.0.6']
+  extra_deps << ['active_support', '~> 3.0']
 
-  # self.rubyforge_name = 'radspberryx' # if different than 'radspberry'
 end
 
 # vim: syntax=ruby

@@ -1,11 +1,3 @@
-require 'active_support/core_ext/class/attribute'
-require 'active_support/core_ext/array/grouping'
-
-require 'matrix'
-require './RAFL_wav'
-require './midi'
-require './dsp_math'
-
 class AudioDSP
   include DSP::Constants
   
@@ -34,9 +26,7 @@ class AudioDSP
 
   # allows for setting multiple values at once
   def [] args={}
-    args.each_pair do |k,v|
-      send "#{k}=", v
-    end
+    args.each_pair{ |k,v| send "#{k}=", v }
   end
 end
 
@@ -104,19 +94,6 @@ class TickerChain < AudioDSP
   end
 end
 
-
-module ArrayExtensions
-  def full_of(val,num)
-    [].fill(val,0...num)
-  end
-
-  def zeros num
-    full_of(0,num)
-  end
-end
-Array.send :extend, ArrayExtensions
-
-
 class ProcessorChain < TickerChain
   def tick input
     @gain * @chain.inject( input ){|x,o| o.tick(x) }
@@ -148,16 +125,12 @@ class Mixer < Generator
 end
 
 class XFader < Generator
-  attr_accessor :fade
+  param_accessor :fade
 
   def self.[] *mix
     new mix[0], mix[1], mix[2]
   end
 
-  def fade= fade
-    @fade = DSP.clamp( fade, 0, 1.0)
-  end
-  
   def initialize a, b,fade=nil
     raise ArgumentError, "inputs cannot be nil!" unless a && b
     @fade = fade || 0.5

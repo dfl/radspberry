@@ -1,22 +1,33 @@
+require 'ffi-portaudio'
+
+# these are equivalent: 
+#  Speaker[ SuperSaw.new ]
+#  Speaker.new( SuperSaw )
+# example use:
+#   Speaker.new( SuperSaw, :frameSize => 2**12)[ :volume => 0.5, :synth => {:spread => 0.9, :freq => 200 }]
+#   Speaker[:volume => 0.5, :synth => {:spread => 0.9, :freq => 200 }]
 
 module Speaker
   extend self
 
   @@stream = nil
 
-  def [] *args
-    @@stream.close if @@stream
-    @@stream = AudioStream.new( *args )
+  def new synth, opts={}
+    @@stream.try(:close)
+    synth = synth.new if synth.is_a?(Class) # instantiate
+    @@stream = AudioStream.new( synth, opts[:frameSize] )
     self
   end
   
-  def volume= gain
-    @@stream.gain = gain
+  def [] opts={}
+    return new(opts) if [ Class, AudioDSP ].include?( opts.class )
+    raise ArgumentError, "no stream initialized yet!" unless @@stream
+    synth[ opts.delete(:synth) || {} ]
+    opts.each_pair{ |k,v| send "#{k}=", v }
+    self
   end
-
-  def volume
-    @@stream.gain
-  end
+  
+  param_accessor :volume, :delegate => "@@stream.gain", :default => 1.0
   
   def mute
     @@stream.muted = true
@@ -25,13 +36,17 @@ module Speaker
   def unmute
     @@stream.muted = false
   end
+
+  def muted?
+    @@stream.muted
+  end
   
   def toggleMute
     @@stream.muted = !@@stream.muted
   end
 
   def synth
-    @@stream.synth
+    @@stream.try(:synth)
   end
   
 end

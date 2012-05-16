@@ -1,5 +1,3 @@
-require './filter'
-
 # based on Adam Szabo's thesis from csc.kth.se
 class SuperSaw < Oscillator
   attr_accessor :spread

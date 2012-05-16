@@ -1,6 +1,7 @@
-require './dsp'
-
 class PhasorOscillator < Oscillator
+  param_accessor :phase, :delegate => :phasor
+  param_accessor :freq,  :delegate => :phasor, :range => false # no range check for faster modulation
+
   def initialize( freq = DEFAULT_FREQ, phase=0 )
     @phasor = Phasor.new( freq, phase )
     clear
@@ -9,16 +10,6 @@ class PhasorOscillator < Oscillator
 
   def clear
   end
-
-  def freq= arg
-    @phasor.freq = arg
-  end
-  def phase= arg
-    @phasor.phase = DSP.clamp(arg, 0.0, 1.0)
-  end
-  def phase
-    @phasor.phase
-  end    
 
   def tock
     @phasor.phase.tap{ @phasor.tick }
@@ -35,16 +26,9 @@ class Tri < PhasorOscillator
 end
 
 class Pulse < PhasorOscillator
+  param_accessor :duty, :default => 0.5
+
   FACTOR = { true => 1.0, false => -1.0 }
-
-  def initialize( freq=DEFAULT_FREQ, phase=0 )
-    @duty = 0.5
-    super
-  end
-
-  def duty= arg
-    @duty = DSP.clamp(arg, 0.0, 1.0)
-  end
   
   def tick
     FACTOR[ tock <= @duty ]
@@ -53,18 +37,10 @@ end
 
 class RpmSaw < PhasorOscillator
   include DSP::Math
-
-  def initialize( freq=MIDI::A, phase = DSP.random )
-    @beta = 1.5 # TODO: base on frequency?
-    super
-  end
+  param_accessor :beta, :range => (0..2), :default => 1.5
 
   def clear
     @state = @last_out = 0
-  end
-
-  def beta= arg, clamp=true
-    @beta = DSP.clamp(arg, 0.0, 2.0)
   end
   
   def tick
@@ -81,10 +57,10 @@ class RpmSquare < RpmSaw
 end
 
 class RpmNoise < RpmSaw
-  attr_accessor :beta
-  def initialize( seed = 1234 )
-    super()
-    @beta = seed
+  param_accessor :beta, :default => 1234 # no range clamping
+
+  def initialize( seed = nil )
+    @beta = seed if seed
   end
 
 end    

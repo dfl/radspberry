@@ -1,5 +1,3 @@
-require './dsp'
-
 class Biquad < Processor  # interpolating biquad, Direct-form 1
   include DSP::Math
 

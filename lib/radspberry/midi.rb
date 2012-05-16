@@ -1,5 +1,4 @@
 require 'portmidi'
-require 'active_support/core_ext/object/try'
 
 module MIDI
   extend self
@@ -78,8 +77,6 @@ module MIDI
   end
 
   module Player
-    require './speaker'
-
     extend self
 
     def [] gen      

@@ -9,36 +9,28 @@ A real-time audio dsp library for ruby based on ffi-portaudio
 == FEATURES/PROBLEMS:
 
 * realtime output with ffi-portaudio
-* output to wave files
+* output to speaker and wave files
 * basic oscillator and filter classes
+* MIDI still needs some work
 
-== SYNOPSIS:
+== EXAMPLE USE:
 
 require 'radspberry'
-osc = SuperSaw.new
-Speaker[ osc ]
-osc.spread = 0.5
-osc.freq = 120
-Speaker.volume = 0.5
+
+Speaker[ SuperSaw.new ]
+Speaker.synth[ :spread => 0.5, :freq => 120 ]
+Speaker[:volume => 0.5, :synth => {:spread => 0.9, :freq => 200 }]
 Speaker.mute
 
 == REQUIREMENTS:
 
-* depends on ffi-portaudio (which depends on portaudio)
+* depends on ffi-portaudio (which depends on portaudio libs)
 
 == INSTALL:
 
 * brew install portaudio
 * gem install ffi-portaudio
-
-== DEVELOPERS:
-
-# After checking out the source, run:
-# 
-#   $ rake newb
-# 
-# This task will install any missing dependencies, run the tests/specs,
-# and generate the RDoc.
+* gem install radspberry
 
 == LICENSE:
 
