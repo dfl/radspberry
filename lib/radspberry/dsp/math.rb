@@ -1,4 +1,6 @@
 module DSP
+  extend self
+
   module Constants
     PI        = ::Math::PI
     PI_2      = 0.5*PI
@@ -8,7 +10,6 @@ module DSP
   end
   include Constants
 
-  extend self
   module Math  # TODO make lookup tables?
     def sin x
       ::Math.sin x
@@ -56,7 +57,8 @@ module DSP
     (val.to_f / nearest.to_f).ceil * nearest
   end
 
-  def clamp x, min, max
+  def clamp x, min=(0.0..1.0), max=nil
+    min,max = min.first, min.last if min.is_a?(Range)
     [min, x, max].sort[1]
   end
 

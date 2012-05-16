@@ -1,4 +1,5 @@
 require 'radspberry'
+include DSP
 
 puts "starting simple oscillator"
 Speaker[ Phasor.new ]

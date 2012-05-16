@@ -7,11 +7,11 @@ test/test_radspberry.rb
 lib/radspberry.rb
 lib/radspberry/
 lib/radspberry/RAFL_wav.rb
-lib/radspberry/dsp.rb
-lib/radspberry/dsp_math.rb
-lib/radspberry/filter.rb
+lib/radspberry/dsp/base.rb
+lib/radspberry/dsp/math.rb
+lib/radspberry/dsp/filter.rb
 lib/radspberry/midi.rb
-lib/radspberry/oscillator.rb
+lib/radspberry/dsp/oscillator.rb
 lib/radspberry/ruby_extensions.rb
-lib/radspberry/speaker.rb
-lib/radspberry/super_saw.rb
+lib/radspberry/dsp/speaker.rb
+lib/radspberry/dsp/super_saw.rb

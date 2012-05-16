@@ -395,100 +395,100 @@ class IxmlChunk
 end
 
 
-#####################
-# Standalone methods
-#####################
+# #####################
+# # Standalone methods
+# #####################
+# 
+# def calc_rms(audio_samples, format)
+#   #squaresum = 0
+#   #audio_samples.each { |value| squaresum += (value ** 2) }
+#   #sample_rms = Math.sqrt(squaresum / audio_samples.length)
+#   sample_rms = Math.sqrt((audio_samples.inject { |sum, item| sum + (item ** 2) }) / audio_samples.length)
+#   
+#   calc_dbfs(sample_rms, format.bit_depth)
+# end
+# 
+# def calc_peak(audio_samples, format)
+#   calc_dbfs(audio_samples.max.to_f, format.bit_depth)
+# end
+# 
+# def calc_dbfs(sample_value, bit_depth)
+#   range = (2 ** bit_depth) / 2
+#   (20*Math.log10(sample_value.to_f / range)).round_to(2)
+# end
+# 
+# def calc_sample_value(dbfs_value, bit_depth)
+#   range = (2 ** bit_depth / 2)
+#   (range * Math::E ** (1/20.0 * dbfs_value * (Math.log(2) + Math.log(5)))) - 1
+# end
+# 
+# def generate_white_noise(length_secs, peak_db, sample_rate, bit_depth)
+#   num_samples = (length_secs * sample_rate).to_i
+#   peak_samples = calc_sample_value(peak_db, bit_depth)
+#   output = []
+#   num_samples.times do
+#     output << (rand(65536) - 32768) * peak_samples
+#   end
+#   return output
+# end
+# 
+# def generate_pink_noise(length_secs, peak_db, sample_rate, bit_depth)
+#   num_samples = (length_secs * sample_rate).to_i
+#   peak_samples = calc_sample_value(peak_db, bit_depth)
+#   output = []
+#   amplitude_scaling = [3.8024, 2.9694, 2.5970, 3.0870, 3.4006]
+#   update_probability = [0.00198, 0.01280, 0.04900, 0.17000, 0.68200]
+#   probability_sum = [0.00198, 0.01478, 0.06378, 0.23378, 0.91578]
+#   
+#   contributed_values = [0, 0, 0, 0, 0]
+#   
+#   num_samples.times do
+#     
+#     ur1 = rand
+#     5.times do |stage|
+#       if ur1 <= probability_sum[stage]
+#         ur2 = rand
+#         contributed_values[stage] = 2 * (ur2 - 0.5) * amplitude_scaling[stage]
+#         break
+#       end
+#     end
+#     
+#     sample = contributed_values.inject(0){|sum,item| sum + item}
+#     
+#     output << sample
+#   end
+#   
+#   scale_amount = peak_samples / output.max
+#   output.map! { |item| (item * scale_amount).round_to(0).to_i }
+#   
+#   return output
+# end
+# 
+# def generate_sine_wave(length_secs, peak_db, freq, sample_rate, bit_depth) #defective...drifts over time - rounding error?
+#   peak_samples = calc_sample_value(peak_db, bit_depth)
+#   output = []
+#   period = 1.0 / freq
+#   angular_freq = (2 * Math::PI) / period
+#   
+#   time = 0
+#   while time <= length_secs do
+#     output << (Math.sin(angular_freq * time) * peak_samples).round_to(0).to_i
+#     time += (1.0 / sample_rate)
+#   end
+#   return output.slice(0..-2) #kludge...need to pick this apart to find extra sample
+# end
 
-def calc_rms(audio_samples, format)
-  #squaresum = 0
-  #audio_samples.each { |value| squaresum += (value ** 2) }
-  #sample_rms = Math.sqrt(squaresum / audio_samples.length)
-  sample_rms = Math.sqrt((audio_samples.inject { |sum, item| sum + (item ** 2) }) / audio_samples.length)
-  
-  calc_dbfs(sample_rms, format.bit_depth)
-end
-
-def calc_peak(audio_samples, format)
-  calc_dbfs(audio_samples.max.to_f, format.bit_depth)
-end
-
-def calc_dbfs(sample_value, bit_depth)
-  range = (2 ** bit_depth) / 2
-  (20*Math.log10(sample_value.to_f / range)).round_to(2)
-end
-
-def calc_sample_value(dbfs_value, bit_depth)
-  range = (2 ** bit_depth / 2)
-  (range * Math::E ** (1/20.0 * dbfs_value * (Math.log(2) + Math.log(5)))) - 1
-end
-
-def generate_white_noise(length_secs, peak_db, sample_rate, bit_depth)
-  num_samples = (length_secs * sample_rate).to_i
-  peak_samples = calc_sample_value(peak_db, bit_depth)
-  output = []
-  num_samples.times do
-    output << (rand(65536) - 32768) * peak_samples
-  end
-  return output
-end
-
-def generate_pink_noise(length_secs, peak_db, sample_rate, bit_depth)
-  num_samples = (length_secs * sample_rate).to_i
-  peak_samples = calc_sample_value(peak_db, bit_depth)
-  output = []
-  amplitude_scaling = [3.8024, 2.9694, 2.5970, 3.0870, 3.4006]
-  update_probability = [0.00198, 0.01280, 0.04900, 0.17000, 0.68200]
-  probability_sum = [0.00198, 0.01478, 0.06378, 0.23378, 0.91578]
-  
-  contributed_values = [0, 0, 0, 0, 0]
-  
-  num_samples.times do
-    
-    ur1 = rand
-    5.times do |stage|
-      if ur1 <= probability_sum[stage]
-        ur2 = rand
-        contributed_values[stage] = 2 * (ur2 - 0.5) * amplitude_scaling[stage]
-        break
-      end
-    end
-    
-    sample = contributed_values.inject(0){|sum,item| sum + item}
-    
-    output << sample
-  end
-  
-  scale_amount = peak_samples / output.max
-  output.map! { |item| (item * scale_amount).round_to(0).to_i }
-  
-  return output
-end
-
-def generate_sine_wave(length_secs, peak_db, freq, sample_rate, bit_depth) #defective...drifts over time - rounding error?
-  peak_samples = calc_sample_value(peak_db, bit_depth)
-  output = []
-  period = 1.0 / freq
-  angular_freq = (2 * Math::PI) / period
-  
-  time = 0
-  while time <= length_secs do
-    output << (Math.sin(angular_freq * time) * peak_samples).round_to(0).to_i
-    time += (1.0 / sample_rate)
-  end
-  return output.slice(0..-2) #kludge...need to pick this apart to find extra sample
-end
-
-
-class Float
-  def round_to(x)
-    (self * 10**x).round.to_f / 10**x
-  end
-
-  def ceil_to(x)
-    (self * 10**x).ceil.to_f / 10**x
-  end
-
-  def floor_to(x)
-    (self * 10**x).floor.to_f / 10**x
-  end
-end
+# module FloatExtensions
+#   def round_to(x)
+#     (self * 10**x).round.to_f * 10**-x
+#   end
+# 
+#   def ceil_to(x)
+#     (self * 10**x).ceil.to_f * 10**-x
+#   end
+# 
+#   def floor_to(x)
+#     (self * 10**x).floor.to_f * 10**-x
+#   end
+# end
+# Float.send :include, FloatExtensions

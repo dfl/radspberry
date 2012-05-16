@@ -2,6 +2,7 @@ require 'portmidi'
 
 module MIDI
   extend self
+
   def devices
     Portmidi.input_devices
   end
@@ -80,16 +81,16 @@ module MIDI
     extend self
 
     def [] gen      
-      Speaker[ @gen = gen ].volume = 0
+      DSP::Speaker[ @gen = gen ].volume = 0
       loop do
         MIDI::process.each do |event|
           case event
           when Note
             p event
-            Speaker.volume = event.velocity / 128.0
+            DSP::Speaker.volume = event.velocity / 128.0
             @gen.freq = MIDI::krystal_freq( event.note )
           else :all_notes_off
-            Speaker.volume = 0
+            DSP::Speaker.volume = 0
           end
         end
       end

@@ -1,5 +1,5 @@
 class Radspberry
-  VERSION = '0.1.0'
+  VERSION = '0.1.1'
 end
 
 require 'matrix'
@@ -15,9 +15,9 @@ require 'radspberry/RAFL_wav'
 
 require 'radspberry/ruby_extensions'
 require 'radspberry/midi'
-require 'radspberry/dsp_math'
-require 'radspberry/dsp'
-require 'radspberry/speaker'
-require 'radspberry/oscillator'
-require 'radspberry/filter'
-require 'radspberry/super_saw'
+require 'radspberry/dsp/math'
+require 'radspberry/dsp/base'
+require 'radspberry/dsp/speaker'
+require 'radspberry/dsp/oscillator'
+require 'radspberry/dsp/filter'
+require 'radspberry/dsp/super_saw'

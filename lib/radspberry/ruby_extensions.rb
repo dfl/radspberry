@@ -9,15 +9,17 @@ module ArrayExtensions
 end
 Array.send :extend, ArrayExtensions
 
-module ModuleExtensions  
+module ModuleExtensions
+  
   def param_accessor symbol, opts={}
-    opts = {:range => opts } if opts.is_a?(Range)
+    opts = { :range => opts } if opts.is_a?(Range)
     opts.reverse_merge! :range => (0..1)
     var = nil
     if d = opts[:delegate]
       d = "@#{d}" if d.is_a?(Symbol)      
       d = "#{d}.#{symbol}" unless d =~ /\./
-      var = d
+      d,s = d.split(".")
+      var = "#{d} && #{d}.#{s}"  # try first
     else
       var = symbol
       var = "@#{var}" if var.is_a?(Symbol)
