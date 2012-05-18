@@ -2,28 +2,24 @@ module DSP
 
   # based on Adam Szabo's thesis from csc.kth.se
   class SuperSaw < Oscillator
-    attr_accessor :spread
-
-    def initialize freq = DEFAULT_FREQ, spread=0.5, num=7
-      @master = Phasor.new
-      @phasors = (1..num-1).map{ Phasor.new }
-      @spread = spread
+    param_accessor :spread, :default => 0.5, :after_set => Proc.new{detune_phasors}
+    
+    def initialize freq = DEFAULT_FREQ
+      @master  = Phasor.new
+      @hpf     = Hpf.new( @master.freq )
       setup_tables
-      @hpf = Hpf.new( @master.freq )
+      @phasors = @@offsets.size.times.map{ Phasor.new }
       randomize_phase
+      @spread   = self.spread # set default
       self.freq = freq
-    end
-
-    def spread= x
-      @spread = DSP.clamp(x)
-      detune_phasors
     end
     
     def randomize_phase
+      @master.phase = DSP.random
       @phasors.each{|p| p.phase = DSP.random }
     end
   
-    def clear
+    def clear  # call this on note on
       @hpf.clear
       randomize_phase
     end
@@ -35,20 +31,20 @@ module DSP
 
     def tick
       osc =  @@center[ @spread ] * @master.tick
-      osc +=   @@side[ @spread ] * @phasors.inject(0){|sum,p| sum + p.tick }
+      osc +=   @@side[ @spread ] * @phasors.tick_sum #inject(0){|sum,p| sum + p.tick }
       @hpf.tick( osc )
     end
   
     def ticks samples
-      osc =  @@center[ @spread ] * Vector[*@master.ticks(samples)]
-      osc =    @@side[ @spread ] * @phasors.inject( osc ){|sum,p| sum + Vector[*p.ticks(samples)] }
-      @hpf.ticks( osc.to_a )
+      osc =  @@center[ @spread ] * @master.ticks(samples)
+      osc =    @@side[ @spread ] * @phasors.ticks_sum( samples, osc ) #inject( osc ){|sum,p| sum + p.ticks(samples).to_v }
+      @hpf.ticks( osc )
     end
     
     private 
 
     def detune_phasors
-      @phasors.each_with_index{ |p,i| p.freq = (1 + @@detune[@spread] * @@offsets[i]) * @freq }
+      @phasors.each_with_index{|p,i| p.freq = (1 + @@detune[@spread] * @@offsets[i]) * @freq }
     end
 
     def setup_tables

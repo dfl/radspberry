@@ -63,18 +63,18 @@ module DSP
   end
 
   class LookupTable  # linear interpolated, input goes from 0 to 1
-    def initialize bits=7
-      @size  = 2 ** bits
-      scale  = 1.0 / @size
-      @table = (0..@size).map{|x| yield( scale * x ) }
+    def initialize opts={}
+      opts.reverse_merge! :bits => 7, :scale => 1.0, :offset => 0
+      @size, @scale, @offset  = 2 ** opts[:bits], opts[:scale], opts[:offset]
+      @table = @size.times.map{|x| yield( x.to_f / @size ) }
     end
 
-    def []( arg )  # from 0 to 1
+    def []( arg )  # input goes from 0 to 1
       offset = arg * @size
       idx = offset.floor
       frac = offset - idx
-      return @table.last if idx >= @size
-      DSP.xfade( @table[idx], @table[idx+1], frac )
+      output = idx >= @size ? @table.last : DSP.xfade( @table[idx], @table[idx+1], frac )
+      # output = @scale * output + offset
     end
   end
 

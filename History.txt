@@ -1,3 +1,6 @@
+=== 0.1.2 / 2012-05-16
+* cleaned up vector behavior for Generator#ticks, using ArrayExtensions#to_v etc
+
 === 0.1.1 / 2012-05-16
 
 * enhancements to Speaker

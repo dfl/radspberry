@@ -89,7 +89,7 @@ module MIDI
             p event
             DSP::Speaker.volume = event.velocity / 128.0
             @gen.freq = MIDI::krystal_freq( event.note )
-          else :all_notes_off
+          else # :all_notes_off
             DSP::Speaker.volume = 0
           end
         end

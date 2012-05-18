@@ -4,7 +4,7 @@
 
 == DESCRIPTION:
 
-A real-time audio dsp library for ruby based on ffi-portaudio
+A real-time audio DSP library for ruby based on ffi-portaudio
 
 == FEATURES/PROBLEMS:
 

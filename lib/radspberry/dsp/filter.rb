@@ -4,10 +4,10 @@ module DSP
     include Math
 
     def initialize( num=[1.0,0,0], den=[1.0,0,0], opts={} )
+      @interpolate = opts[:interpolate]
+      @denorm = ANTI_DENORMAL
       update( Vector[*num], Vector[*den] )
       normalize if @a[0] != 1.0
-      @denorm = ANTI_DENORMAL
-      @interpolate = opts[:interpolate]
       clear
     end
 
@@ -69,7 +69,7 @@ module DSP
     end
 
     def freq= arg
-      @w0= TWO_PI * arg * inv_srate # normalize freq [0,PI)
+      @w0 = TWO_PI * arg * inv_srate # normalize freq [0,PI)
       recalc
     end
   end
@@ -89,6 +89,7 @@ module DSP
 
   class Hpf < Biquad
     def initialize( f, q=nil )
+      @interpolate = true
       @inv_q = q ? 1.0 / q : SQRT2  # default to butterworth
       self.freq = f # triggers recalc
       clear

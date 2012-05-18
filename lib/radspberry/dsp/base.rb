@@ -47,11 +47,11 @@ module DSP
         [].tap do |output|
           samples.in_groups_of( kperiod, 0.0 ) do |frame|
             yield( self )
-            output += self.ticks(kperiod)
+            output += self.ticks(kperiod).to_a  # concat frames
           end
-        end
+        end.to_v
       else
-        (1..samples).map{ tick }
+        samples.times.map{ tick }.to_v
       end
     end
 
@@ -62,7 +62,7 @@ module DSP
         samples = self.sampleRate * seconds
         if block_given?
           inv = 1.0 / samples
-          data = (1..samples).map{ |s| yield(self, s * inv); self.tick }
+          data = samples.times.map{ |s| yield(self, s * inv); self.tick }
         else
           data = self.ticks( samples )
         end
@@ -104,7 +104,7 @@ module DSP
     end
 
     def ticks samples
-      (@gain * @chain.inject( Vector[*Array.zeros(samples)] ){|x,o| Vector[*o.ticks(x)] } ).to_a
+      @gain * @chain.inject( Vector.zeros(samples) ){|x,o| o.ticks(x) }
     end
   end
 
@@ -115,16 +115,16 @@ module DSP
 
     def initialize mix
       raise ArugmentError, "must be array" unless mix.is_a?(Array)
-      @mix   = mix
+      @mix  = mix
       @gain = 1.0 / Math.sqrt( @mix.size )
     end
 
     def tick
-      @gain * @mix.inject( 0.0 ){|sum,o| sum + o.tick }
+      @gain * @mix.tick_sum
     end
 
     def ticks samples
-      (@gain * @mix.inject( Vector[*Array.zeros(samples)] ){|sum,o| sum + Vector[*o.ticks(samples)] } ).to_a
+      @gain * @mix.ticks_sum( samples )
     end
   end
 
@@ -146,9 +146,9 @@ module DSP
     end
 
     def ticks samples
-      a = Vector[*@a.ticks(samples)]
-      b = Vector[*@b.ticks(samples)]
-      ( (b-a)*@fade + a ).to_a  # TODO cos fade?
+      a = @a.ticks(samples)
+      b = @b.ticks(samples)
+      (b-a)*@fade + a  # TODO cos fade?
     end 
 
   end
@@ -183,7 +183,7 @@ module DSP
     end
 
     def ticks samples
-      (@mix.each_with_index.inject( Vector[*Array.zeros(samples)] ){|sum,(o,i)| sum + @gains[i] * Vector[*o.ticks(samples)] } ).to_a
+      @mix.each_with_index.inject( Vector.zeros(samples) ){|sum,(o,i)| sum + @gains[i] * o.ticks(samples) }
     end
   end
 
@@ -202,7 +202,7 @@ module DSP
     end
 
     def ticks samples
-      (@gain * @chain.inject( Vector[*@gen.ticks(samples)] ){|x,o| Vector[*o.ticks(x)] } ).to_a
+      @gain * @chain.inject( @gen.ticks(samples) ){|x,o| o.ticks(x) }
     end
   end
 

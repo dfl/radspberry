@@ -64,7 +64,6 @@ module DSP
   end
 
   class RpmSquare < RpmSaw
-
     def initialize( freq = DEFAULT_FREQ, phase=0 )
       super
     end
@@ -75,13 +74,22 @@ module DSP
     end
   end
 
-  class RpmNoise < RpmSaw
-    param_accessor :beta, :default => 1234 # no range clamping
-
-    def initialize( seed = nil )
-      @beta = seed if seed
-      clear
+  class RpmNoise < PhasorOscillator
+    # param_accessor :beta, :default => 1234 # no range clamping
+    
+    def initialize( seed = 1234 )
+      @beta = seed # || self.beta
+      super
     end
 
-  end    
+    def clear
+      @last_out = 0
+    end
+  
+    def tick
+      @last_out = sin( TWO_PI * tock + @beta * @last_out )
+    end
+
+  end
+  
 end

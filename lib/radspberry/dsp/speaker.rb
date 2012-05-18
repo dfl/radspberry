@@ -57,6 +57,7 @@ module DSP
     def initialize gen, frameSize=2**12, gain=1.0  # 1024
       @synth = gen # responds to tick
       @gain  = gain
+      @muted = false
       raise ArgumentError, "#{synth.class} doesn't respond to ticks!" unless @synth.respond_to?(:ticks)
       init!( frameSize )
       start
@@ -67,13 +68,10 @@ module DSP
       if @muted
         out = Array.zeros( framesPerBuffer )
       else
-        if @gain == 1.0
-          out = @synth.ticks( framesPerBuffer )
-        else
-          out = (Vector[ *@synth.ticks( framesPerBuffer ) ] * @gain).to_a
-        end
+        out = @synth.ticks( framesPerBuffer )
+        out *= @gain unless gain == 1.0
       end
-      output.write_array_of_float out
+      output.write_array_of_float out.to_a
       :paContinue
     end
 
