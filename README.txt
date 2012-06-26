@@ -29,8 +29,8 @@ Speaker.mute
 
 == INSTALL:
 
-* brew install portaudio
-* gem install ffi-portaudio
+* brew install portaudio portmidi
+* gem install ffi-portaudio portmidi
 * git clone git@github.com:dfl/radspberry.git
 * rake install_gem
 

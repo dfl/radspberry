@@ -24,6 +24,24 @@ module DSP
     end
   end
 
+  # http://www.kvraudio.com/forum/viewtopic.php?t=349859
+  def ptan1 x  # Pade tan #1
+    x2 = x*x
+    (-15.0*x+x2*x) / (3.0*(-5.0+2.0*x2))
+  end
+  
+  def ptan2 x
+    x2 = x*x;
+    5.0*(-21.0*x+2.0*x2*x) / (105.0 - 45.0*x2+x2*x2 )
+  end
+  
+  # mystran's nonlinearity
+  def tanhXdX x
+    # IIRC I got this as Pade-approx for tanh(sqrt(x))/sqrt(x) 
+    x2 = x*x;
+    ((x2 + 105.0)*x2 + 945.0) / ((15.0*x2 + 420.0)*x2 + 945.0)
+  end
+
   def noise
     bipolar( random )
   end
@@ -36,13 +54,17 @@ module DSP
     2.0*x - 1.0
   end
 
-  def xfade( a, b, x )
+  def xfade( a, b, x )  # AKA lerp
     (b-a)*x + a
   end
 
   def quart(x)
     tmp = x*x
     tmp*tmp
+  end
+
+  def saturate x, y=0.25
+    1.0 - y*x.abs
   end
 
   # def crush x, bits=8
@@ -77,5 +99,5 @@ module DSP
       # output = @scale * output + offset
     end
   end
-
+  
 end

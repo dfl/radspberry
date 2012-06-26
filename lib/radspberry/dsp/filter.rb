@@ -1,5 +1,60 @@
 module DSP
 
+  # http://www.kvraudio.com/forum/viewtopic.php?t=333887
+  class OnePoleZD < Processor
+    attr_accessor :state
+    include Math
+    
+    def initialize
+      freq = srate / 2.0
+    end
+    
+    def freq= freq
+      @f    = tan( PI * freq * inv_srate )  # BLT... should be 2x oversampled
+      @finv = 1.0 / (1.0 + @f)
+    end
+
+    def clear 
+      @state = 0.0
+    end
+  end
+  
+  class ZDLP < OnePoleZD
+    attr_accessor :state
+    include Math
+    
+    def initialize
+      freq = srate / 2.0
+    end
+    
+    def freq= freq
+      @f    = tan( PI * freq * inv_srate )  # BLT... should be 2x oversampled
+      @finv = 1.0 / (1.0 + @f)
+    end
+
+    def clear 
+      @state = 0.0
+    end
+
+    def tick input  # zero delay feedback
+      output = (@state + @f * input ) * @finv;
+      @state = @f * (input - output) + output
+      output
+      # iin = input - (@state + @f * input) / @finv
+      # output = @state + @f*iin
+      # @state = @f * iin + output
+    end
+  end
+
+  class ZDHP < OnePoleZD
+    def tick input  
+      low    = (@state + @f * input ) * @finv;
+      high   = input - low
+      @state = low + @f * high
+      high
+    end
+  end
+
   class Biquad < Processor  # interpolating biquad, Direct-form 1
     include Math
 
@@ -151,4 +206,138 @@ module DSP
     #     float a0 =        Ap - Am*cs + beta*sn;
     #     float a1 =    2*( Am - Ap*cs           );
     #     float a2 =        Ap - Am*cs - beta*sn;
+    
+    
+  # http://www.cytomic.com/files/dsp/SvfLinearTrapOptimised.pdf
+  class SVF < Processor
+    attr_accessor :kind, :freq
+
+    def initialize
+      @kind = :low
+      clear
+    end
+
+    def clear
+      @v0z = 0
+      @v1  = 0
+      @v2  = 0
+      @output = {}
+    end
+    
+    def freq= f
+      @freq = freq
+      recalc
+    end
+
+    def q= q
+      @q = q
+      recalc
+    end
+    
+    def recalc
+      @g = tan( PI * @freq * inv_srate )
+      @k = 1.0 / @q
+      @ginv = @g / ( 1.0 + @g * (@g+@k))
+      @g1 = @ginv
+      @g2 = 2.0 * (@g+@k) * @ginv
+      @g3 = @g * @ginv
+      @g4 = 2.0 * @ginv
+    end
+
+    def process input
+      @v0  = input
+      @v1z = @v1
+      @v2z = @v2
+      @v3  = @v0 + @v0z - 2.0 * @v2z
+      @v1 += @g1 * @v3 - @g2 * @v1z
+      @v2 += @g3 * @v3 + @g4 * @v1z
+      @v0z = @v0
+      @output[:lp]    = @v2
+      @output[:bp]    = @v1
+      @output[:hp]    = @v0 - @k * @v1 - @v2
+      @output[:notch] = @v0 - @k * @v1
+    end
+
+    def tick input
+      process( input )
+      output[ @kind ]
+    end
+  end
+  
+  class BellSVF < SVF
+    def recalc
+      @gb   = 10.0 ** (dbGain * 0.025)
+      @g    = tan( PI * @freq * inv_srate )
+      @k    = 1.0 / (@q * @gb)
+      @gi   = @k * (@gb * @gb - 1)
+      @ginv = @g / ( 1.0 + @g * (@g+@k))
+      @g1   = @ginv
+      @g2   = 2.0 * (@g+@k) * @ginv
+      @g3   = @g * @ginv
+      @g4   = 2.0 * @ginv
+    end
+    
+    def tick input
+      @v0  = @gi * input
+      @v1z = @v1
+      @v2z = @v2
+      @v3  = @v0 + @v0z - 2.0 * @v2z
+      @v1 += @g1 * @v3 - @g2 * @v1z
+      @v2 += @g3 * @v3 + @g4 * @v1z
+      @v0z = @v0
+      @output  = input + @v1
+    end
+  end
+    
 end
+
+# http://www.kvraudio.com/forum/viewtopic.php?t=349859&postdays=0&postorder=asc&start=120
+# Richard_Synapse
+# KVRist
+# - profile
+# - pm
+#  Posted: Thu May 24, 2012 4:45 am reply with quote
+# Just for the lulz...here's a first simple model I cooked up using mystrans method. It's a 2-pole lowpass filter with nonlinear feedback, inspired by the Korg MS stuff. 
+# 
+# This filter has some sweet spots (I really dig the sound of its self-oscillation), but it needs work. The differential equations I used as a starting point are: 
+# 
+# dy1/dt = f*(in - y1 - g(r*y2)) 
+# dy2/dt = f*(y1 - y2 + g(r*y2)) 
+# 
+# where 'r' is resonance, 'g()' is the nonlinear function. Certainly additional equations are needed to improve the sound, I keep it as simple as possible. Any suggestions welcome! 
+# 
+# The code: 
+# Quote:
+# 
+# // evaluate the non-linear gain 
+# double t = tanhXdX(r * yl2); 
+# 
+# // solve the linearized system 
+# double denom = f* f * r* t + f *(f + 1) + f + 1; 
+# double y1 =(-f* r *t *yl2 + (f + 1)* yl1 + f* (f + 1)* in) / denom; 
+# double y2 = (f* yl2 + yl2 + f * yl1 + f* f* in) / denom; 
+# 
+# // update state 
+# yl1 += f*2 * (in - y1 - r*t*y2); 
+# yl2 += f*2 * (y1 + r*t*y2 - y2); 
+# 
+# 
+# 
+# 
+# karrikuh Posted: Thu May 24, 2012 6:27 am
+#  
+# Richard_Synapse wrote:
+# // evaluate the non-linear gain 
+# double t = tanhXdX(r * yl2); 
+# 
+# 
+# This is not strictly in accordance with your equations. Your code realizes a filter with the resonance gain r pre-saturator, while your equations have r at the output of g(). 
+# Richard_Synapse wrote:
+# // solve the linearized system 
+# double denom = f* f * r* t + f *(f + 1) + f + 1; 
+# double y1 =(-f* r *t *yl2 + (f + 1)* yl1 + f* (f + 1)* in) / denom; 
+# double y2 = (f* yl2 + yl2 + f * yl1 + f* f*  in) / denom;
+# 
+# 
+# You don't need solve the whole feedback loop for both integrator outputs. Instead, just solve for y2, then all inputs for the first lowpass stage are available and you can compute y1 in the traditional way (probably cheaper).
+# ----

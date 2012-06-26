@@ -271,6 +271,14 @@ module DSP
     end
   end
 
+  class Spicer < Processor
+    include DSP::Math
+
+    def tick input
+      sin( input )      
+    end    
+  end
+  
   class SampleGlide < SampleHold
     def initialize freq = DEFAULT_FREQ, phase = DSP.random
       @slew = Lowpass.new( 0.5/freq )
