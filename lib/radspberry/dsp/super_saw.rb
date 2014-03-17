@@ -3,6 +3,7 @@ module DSP
   # based on Adam Szabo's thesis from csc.kth.se
   class SuperSaw < Oscillator
     param_accessor :spread, :default => 0.5, :after_set => Proc.new{detune_phasors}
+    param_accessor :mix,    :default => 0.75
     
     def initialize freq = DEFAULT_FREQ
       @master  = Phasor.new
@@ -11,6 +12,7 @@ module DSP
       @phasors = @@offsets.size.times.map{ Phasor.new }
       randomize_phase
       @spread   = self.spread # set default
+      @mix      = self.mix
       self.freq = freq
     end
     
@@ -30,14 +32,14 @@ module DSP
     end
 
     def tick
-      osc =  @@center[ @spread ] * @master.tick
-      osc +=   @@side[ @spread ] * @phasors.tick_sum #inject(0){|sum,p| sum + p.tick }
+      osc =  @@center[ @mix ] * @master.tick
+      osc +=   @@side[ @mix ] * @phasors.tick_sum #inject(0){|sum,p| sum + p.tick }
       @hpf.tick( osc )
     end
   
     def ticks samples
-      osc =  @@center[ @spread ] * @master.ticks(samples)
-      osc =    @@side[ @spread ] * @phasors.ticks_sum( samples, osc ) #inject( osc ){|sum,p| sum + p.ticks(samples).to_v }
+      osc =  @@center[ @mix ] * @master.ticks(samples)
+      osc =    @@side[ @mix ] * @phasors.ticks_sum( samples, osc ) #inject( osc ){|sum,p| sum + p.ticks(samples).to_v }
       @hpf.ticks( osc )
     end
     
@@ -59,7 +61,7 @@ module DSP
     end
   
     def calc_side x
-      -0.73754*x*x + 1.2841*x + 0.044372
+      -0.73764*x*x + 1.2841*x + 0.044372
     end
 
     def calc_center x
