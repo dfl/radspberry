@@ -1,16 +1,17 @@
 require_relative '../lib/radspberry'
 include DSP
 
+
+# puts "\n=== Function Composition Examples ==="
+
+
 q = 7
 delta = 0.04
-
-puts "\n=== Function Composition Examples ==="
-
 
 osc1 = SuperSaw.new(110)
 osc = (Phasor.new(110*1.495)+ osc1 + RpmNoise.new*0.8) / 3
 
-# puts "\nHighpass filter sweep"
+puts "\nHighpass filter sweep"
 hpf = ButterHP.new(100, q:)
 # filtered = osc >> hpf >> Speaker
 
@@ -56,20 +57,21 @@ end
 
 
 puts "\n3. Complex multi-stage processing"
-puts "   Creating: SuperSaw >> ButterHP(80) >> ButterLP(1000) >> Speaker"
+saw = SuperSaw.new(110)
+sub = SuperSaw.new(110/4.0) 
+(saw + sub) / 2 >> Speaker
 
-saw1 = SuperSaw.new(110)
-saw2 = SuperSaw.new(110*1.5) 
-
-osc = ( saw1 + saw2 + RpmNoise.new) / 3
-
-puts "   Increasing spread..."
-
-5.times do 
-  saw1.spread += 0.1
-  saw2.spread += 0.1
+puts "   Increasing SuperSaw spread..."
+saw.spread = 0
+8.times do 
+  saw.spread += 0.1
+  # sub.spread += 0.1
+  sleep 1.5
 end
-sleep 2
 
 Speaker.mute
 puts "\n=== Composition API Demo Complete ==="
+
+
+# TODO portamento glide for oscillator
+# Parameter groups, saw1+saw2 same freq
