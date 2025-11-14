@@ -2,18 +2,13 @@
 
 [![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)](https://github.com/dfl/radspberry)
 
-A real-time audio DSP library for Ruby based on ffi-portaudio
-
-* https://github.com/dfl/radspberry
-
-## Description
-
-A real-time audio DSP library for Ruby based on ffi-portaudio. Create synthesizers, apply filters, and generate audio in real-time with a simple, expressive API.
+A real-time audio DSP library for Ruby based on ffi-portaudio, designed to create synthesizers,
+apply filters, and generate audio in real-time with a simple, expressive API.
 
 ## Features
 
-* Real-time output with ffi-portaudio
-* Output to speaker and wave files
+* Real-time output with ffi-portaudio (though timing is a bit unstable)
+* Output to speaker or wave file
 * Basic oscillator and filter classes
 * MIDI has not been implemented yet (portmidi)
 
