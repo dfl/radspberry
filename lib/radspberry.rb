@@ -1,5 +1,5 @@
 class Radspberry
-  VERSION = '0.1.1'
+  VERSION = '0.1.2'
 end
 
 require 'matrix'
@@ -11,13 +11,13 @@ require 'active_support/core_ext/object/try'
 require 'active_support/core_ext/hash/reverse_merge'
 
 require 'portmidi'
-require 'radspberry/RAFL_wav'
+require 'wavefile'
 
-require 'radspberry/ruby_extensions'
-require 'radspberry/midi'
-require 'radspberry/dsp/math'
-require 'radspberry/dsp/base'
-require 'radspberry/dsp/speaker'
-require 'radspberry/dsp/oscillator'
-require 'radspberry/dsp/filter'
-require 'radspberry/dsp/super_saw'
+require_relative './radspberry/ruby_extensions'
+require_relative './radspberry/midi'
+require_relative './radspberry/dsp/math'
+require_relative './radspberry/dsp/base'
+require_relative './radspberry/dsp/speaker'
+require_relative './radspberry/dsp/oscillator'
+require_relative './radspberry/dsp/filter'
+require_relative './radspberry/dsp/super_saw'

@@ -1,7 +1,8 @@
-require "test/unit"
-require "radspberry"
+require 'minitest/autorun'
 
-class TestRadspberry < Test::Unit::TestCase
+require_relative "../lib/radspberry"
+
+class TestRadspberry < Minitest::Test
   include DSP
 
   # def test_phasor
