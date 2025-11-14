@@ -20,7 +20,8 @@ module DSP
     def new _synth, opts={}
       @@stream.try(:close)
       _synth = _synth.new if _synth.is_a?(Class) # instantiate
-      @@stream = AudioStream.new( _synth, opts[:frameSize] )
+      frame_size = opts[:frameSize]
+      @@stream = frame_size ? AudioStream.new(_synth, frame_size) : AudioStream.new(_synth)
       self
     end
   
