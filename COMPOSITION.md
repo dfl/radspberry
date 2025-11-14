@@ -14,10 +14,10 @@ Chain generators and processors in the order signals flow:
 
 ```ruby
 # Traditional way
-chain = GeneratorChain.new([Phasor.new(440), Hpf.new(100), ZDLP.new])
+chain = GeneratorChain.new([Phasor.new(440), ButterHP.new(100), ZDLP.new])
 
 # Composition way
-chain = Phasor.new(440) >> Hpf.new(100) >> ZDLP.new
+chain = Phasor.new(440) >> ButterHP.new(100) >> ZDLP.new
 ```
 
 The `>>` operator creates:
@@ -65,10 +65,10 @@ Speaker[Phasor.new(440)]
 Phasor.new(440) >> Speaker
 
 # With processing
-Phasor.new(440) >> Hpf.new(100) >> Speaker
+Phasor.new(440) >> ButterHP.new(100) >> Speaker
 
 # Complex chains
-(Phasor.new(220) + SuperSaw.new(110)) >> Hpf.new(80) >> ZDLP.new >> Speaker
+(Phasor.new(220) + SuperSaw.new(110)) >> ButterHP.new(80) >> ZDLP.new >> Speaker
 ```
 
 ## Real-Time Parameter Control
@@ -78,7 +78,7 @@ All composed chains maintain **mutable state**, allowing real-time parameter twe
 ```ruby
 # Build a chain
 osc = Phasor.new(440)
-chain = osc >> Hpf.new(100) >> Speaker
+chain = osc >> ButterHP.new(100) >> Speaker
 
 # Modify parameters in real-time
 osc.freq = 880  # Still works!
@@ -98,7 +98,7 @@ fader.fade = 0.5    # Adjust crossfade
 
 ```ruby
 signal = SuperSaw.new(55) >>
-         Hpf.new(40, 0.7) >>
+         ButterHP.new(40, 0.7) >>
          ZDLP.new >>
          Spicer.new >>
          Speaker
@@ -107,8 +107,8 @@ signal = SuperSaw.new(55) >>
 ### Parallel Processing & Mixing
 
 ```ruby
-bass = SuperSaw.new(55) >> Hpf.new(40)
-lead = Phasor.new(440) >> Hpf.new(100)
+bass = SuperSaw.new(55) >> ButterHP.new(40)
+lead = Phasor.new(440) >> ButterHP.new(100)
 pad  = RpmNoise.new >> ZDLP.new
 
 mix = bass + lead + pad >> Speaker
@@ -118,7 +118,7 @@ mix = bass + lead + pad >> Speaker
 
 ```ruby
 # Mix two processed signals, then crossfade with a third
-path_a = (Phasor.new(220) + Phasor.new(440)) >> Hpf.new(100)
+path_a = (Phasor.new(220) + Phasor.new(440)) >> ButterHP.new(100)
 path_b = RpmNoise.new >> ZDLP.new
 
 result = path_a.crossfade(path_b, 0.3) >> Speaker
@@ -129,11 +129,11 @@ result = path_a.crossfade(path_b, 0.3) >> Speaker
 ```ruby
 # Define reusable effect chains as methods
 def bass_processing
-  Hpf.new(40, 0.7) >> ZDLP.new
+  ButterHP.new(40, 0.7) >> ZDLP.new
 end
 
 def lead_processing
-  Hpf.new(100) >> BellSVF.new
+  ButterHP.new(100) >> BellSVF.new
 end
 
 # Apply to different sources
@@ -159,8 +159,8 @@ The composition operators create the same objects as the traditional API:
 
 ```ruby
 # These are equivalent:
-Phasor.new >> Hpf.new
-GeneratorChain.new([Phasor.new, Hpf.new])
+Phasor.new >> ButterHP.new
+GeneratorChain.new([Phasor.new, ButterHP.new])
 
 # These are equivalent:
 Phasor.new + RpmNoise.new

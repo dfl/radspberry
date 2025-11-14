@@ -62,7 +62,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Basic DSP framework with generators and processors
 - Phasor, Tri, Pulse, RpmSaw, RpmSquare, RpmNoise oscillators
 - SuperSaw oscillator based on Adam Szabo's thesis
-- Biquad filters (HPF, LPF)
+- Biquad filters (ButterHP, ButterLP)
 - Zero-delay filters (ZDLP, ZDHP, OnePoleZD)
 - State Variable Filters (SVF, BellSVF)
 - ProcessorChain and GeneratorChain for signal routing

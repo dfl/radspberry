@@ -7,7 +7,7 @@ module DSP
     
     def initialize freq = DEFAULT_FREQ
       @master  = Phasor.new
-      @hpf     = Hpf.new( @master.freq )
+      @hpf     = ButterHP.new( @master.freq )
       setup_tables
       @phasors = @@offsets.size.times.map{ Phasor.new }
       randomize_phase

@@ -8,7 +8,7 @@ class TestRadspberry < Minitest::Test
   def test_composition_with_operators
     # Test >> operator creates GeneratorChain
     osc = Phasor.new(440)
-    hpf = Hpf.new(100, 0.7)
+    hpf = ButterHP.new(100, q: 0.7)
     chain = osc >> hpf
 
     assert_instance_of GeneratorChain, chain
@@ -50,7 +50,7 @@ class TestRadspberry < Minitest::Test
     osc2 = Phasor.new(440)
 
     # Mix two oscillators and process
-    hpf = Hpf.new(100, 0.7)
+    hpf = ButterHP.new(100, q: 0.7)
     chain = (osc1 + osc2) >> hpf
 
     assert_respond_to chain, :tick

@@ -88,10 +88,12 @@ module DSP
     end
   
     def update b, a
-      @b,@a = b,a
-      if @interpolate
-        @_b,@_a = @b,@a
-        interpolate if interpolating?
+      if @interpolate && @b && @a  # Only save old values if they exist
+        @_b,@_a = @b,@a  # Save old values before updating
+      end
+      @b,@a = b,a  # Update to new values
+      if @interpolate && @_b && @_a  # Only interpolate if we have old values
+        interpolate  # Interpolate from old to new
       end
     end
 
@@ -123,8 +125,10 @@ module DSP
       end
     end
 
-    def freq= arg
-      @w0 = TWO_PI * arg * inv_srate # normalize freq [0,PI)
+    attr_reader :freq
+    def freq=(arg)
+      @freq = arg
+      @w0 = TWO_PI * @freq * inv_srate # normalize freq [0,PI)
       recalc
     end
   end
@@ -142,15 +146,18 @@ module DSP
     end  
   end
 
-  class Hpf < Biquad
-    def initialize( f, q=nil )
-      @interpolate = true
+  class ButterHP < Biquad
+    def initialize( f=100, q: nil )
+      super( [1.0,0,0], [1.0,0,0], interpolate: true )
       @inv_q = q ? 1.0 / q : SQRT2  # default to butterworth
       self.freq = f # triggers recalc
-      clear
     end
 
-    def q= arg
+    def q
+      1.0 / @inv_q
+    end
+
+    def q=(arg)
       @inv_q = 1.0 / arg
       # inv_q = 10.0**(-0.05*rez);
       recalc
@@ -178,11 +185,177 @@ module DSP
       b2 = 2.0 *   alpha;
       a0 = 1.0
       a1 = 2.0 *   -gamma;
-      a2 = 2.0 *   beta;    
+      a2 = 2.0 *   beta;
 
       update( Vector[b0, b1, b2], Vector[a0, a1, a2] )
+      normalize if @a[0] != 1.0
     end
 
+  end
+
+  class ButterLP < ButterHP
+    def recalc
+      # Using formula from https://www.earlevel.com/main/2012/11/26/biquad-c-source-code/
+      k = tan(PI * @freq * inv_srate)
+      norm = 1.0 / (1.0 + k * @inv_q + k * k)
+
+      b0 = k * k * norm
+      b1 = 2.0 * b0
+      b2 = b0
+      a0 = 1.0
+      a1 = 2.0 * (k * k - 1.0) * norm
+      a2 = (1.0 - k * @inv_q + k * k) * norm
+
+      update(Vector[b0, b1, b2], Vector[a0, a1, a2])
+    end
+  end
+
+  class ButterBP < ButterHP
+    def recalc
+      # Bandpass filter from https://www.earlevel.com/main/2012/11/26/biquad-c-source-code/
+      # Modified for constant 0dB peak gain (multiply by Q for resonance)
+      k = tan(PI * @freq * inv_srate)
+      norm = 1.0 / (1.0 + k * @inv_q + k * k)
+
+      # Original: b0 = k * @inv_q * norm (constant skirt gain)
+      # Modified: b0 = k * norm (constant peak gain - more resonant)
+      b0 = k * norm
+      b1 = 0.0
+      b2 = -b0
+      a0 = 1.0
+      a1 = 2.0 * (k * k - 1.0) * norm
+      a2 = (1.0 - k * @inv_q + k * k) * norm
+
+      update(Vector[b0, b1, b2], Vector[a0, a1, a2])
+    end
+  end
+
+  class ButterNotch < ButterHP
+    def recalc
+      # Notch filter from https://www.earlevel.com/main/2012/11/26/biquad-c-source-code/
+      k = tan(PI * @freq * inv_srate)
+      norm = 1.0 / (1.0 + k * @inv_q + k * k)
+
+      b0 = (1.0 + k * k) * norm
+      b1 = 2.0 * (k * k - 1.0) * norm
+      b2 = b0
+      a0 = 1.0
+      a1 = b1
+      a2 = (1.0 - k * @inv_q + k * k) * norm
+
+      update(Vector[b0, b1, b2], Vector[a0, a1, a2])
+    end
+  end
+
+  class ButterPeak < ButterHP
+    param_accessor :gain, :default => 0.0, :after_set => Proc.new{recalc}
+
+    def initialize( f=1000, q: nil, gain: 0.0 )
+      @gain = gain  # Set gain before super to avoid nil in recalc
+      super(f, q: q)
+    end
+
+    def recalc
+      # Peaking EQ from https://www.earlevel.com/main/2012/11/26/biquad-c-source-code/
+      k = tan(PI * @freq * inv_srate)
+      v = 10.0 ** (@gain.abs / 20.0)
+
+      if @gain >= 0.0
+        # Boost
+        norm = 1.0 / (1.0 + @inv_q * k + k * k)
+        b0 = (1.0 + v * @inv_q * k + k * k) * norm
+        b1 = 2.0 * (k * k - 1.0) * norm
+        b2 = (1.0 - v * @inv_q * k + k * k) * norm
+        a0 = 1.0
+        a1 = b1
+        a2 = (1.0 - @inv_q * k + k * k) * norm
+      else
+        # Cut
+        norm = 1.0 / (1.0 + v * @inv_q * k + k * k)
+        b0 = (1.0 + @inv_q * k + k * k) * norm
+        b1 = 2.0 * (k * k - 1.0) * norm
+        b2 = (1.0 - @inv_q * k + k * k) * norm
+        a0 = 1.0
+        a1 = b1
+        a2 = (1.0 - v * @inv_q * k + k * k) * norm
+      end
+
+      update(Vector[b0, b1, b2], Vector[a0, a1, a2])
+    end
+  end
+
+  class ButterLowShelf < ButterHP
+    param_accessor :gain, :default => 0.0, :after_set => Proc.new{recalc}
+
+    def initialize( f=1000, q: nil, gain: 0.0 )
+      @gain = gain  # Set gain before super to avoid nil in recalc
+      super(f, q: q)
+    end
+
+    def recalc
+      # Low shelf from https://www.earlevel.com/main/2012/11/26/biquad-c-source-code/
+      k = tan(PI * @freq * inv_srate)
+      v = 10.0 ** (@gain.abs / 20.0)
+
+      if @gain >= 0.0
+        # Boost
+        norm = 1.0 / (1.0 + SQRT2 * k + k * k)
+        b0 = (1.0 + ::Math.sqrt(2.0 * v) * k + v * k * k) * norm
+        b1 = 2.0 * (v * k * k - 1.0) * norm
+        b2 = (1.0 - ::Math.sqrt(2.0 * v) * k + v * k * k) * norm
+        a0 = 1.0
+        a1 = 2.0 * (k * k - 1.0) * norm
+        a2 = (1.0 - SQRT2 * k + k * k) * norm
+      else
+        # Cut
+        norm = 1.0 / (1.0 + ::Math.sqrt(2.0 * v) * k + v * k * k)
+        b0 = (1.0 + SQRT2 * k + k * k) * norm
+        b1 = 2.0 * (k * k - 1.0) * norm
+        b2 = (1.0 - SQRT2 * k + k * k) * norm
+        a0 = 1.0
+        a1 = 2.0 * (v * k * k - 1.0) * norm
+        a2 = (1.0 - ::Math.sqrt(2.0 * v) * k + v * k * k) * norm
+      end
+
+      update(Vector[b0, b1, b2], Vector[a0, a1, a2])
+    end
+  end
+
+  class ButterHighShelf < ButterHP
+    param_accessor :gain, :default => 0.0, :after_set => Proc.new{recalc}
+
+    def initialize( f=1000, q: nil, gain: 0.0 )
+      @gain = gain  # Set gain before super to avoid nil in recalc
+      super(f, q: q)
+    end
+
+    def recalc
+      # High shelf from https://www.earlevel.com/main/2012/11/26/biquad-c-source-code/
+      k = tan(PI * @freq * inv_srate)
+      v = 10.0 ** (@gain.abs / 20.0)
+
+      if @gain >= 0.0
+        # Boost
+        norm = 1.0 / (1.0 + SQRT2 * k + k * k)
+        b0 = (v + ::Math.sqrt(2.0 * v) * k + k * k) * norm
+        b1 = 2.0 * (k * k - v) * norm
+        b2 = (v - ::Math.sqrt(2.0 * v) * k + k * k) * norm
+        a0 = 1.0
+        a1 = 2.0 * (k * k - 1.0) * norm
+        a2 = (1.0 - SQRT2 * k + k * k) * norm
+      else
+        # Cut
+        norm = 1.0 / (v + ::Math.sqrt(2.0 * v) * k + k * k)
+        b0 = (1.0 + SQRT2 * k + k * k) * norm
+        b1 = 2.0 * (k * k - 1.0) * norm
+        b2 = (1.0 - SQRT2 * k + k * k) * norm
+        a0 = 1.0
+        a1 = 2.0 * (k * k - v) * norm
+        a2 = (v - ::Math.sqrt(2.0 * v) * k + k * k) * norm
+      end
+
+      update(Vector[b0, b1, b2], Vector[a0, a1, a2])
+    end
   end
 
 
@@ -212,8 +385,8 @@ module DSP
   class SVF < Processor
     attr_accessor :kind, :freq
 
-    def initialize
-      @kind = :low
+    def initialize(kind: :low)
+      @kind = kind
       clear
     end
 
@@ -244,7 +417,7 @@ module DSP
       @g4 = 2.0 * @ginv
     end
 
-    def process input
+    def process(input)
       @v0  = input
       @v1z = @v1
       @v2z = @v2
@@ -277,7 +450,7 @@ module DSP
       @g4   = 2.0 * @ginv
     end
     
-    def tick input
+    def tick(input)
       @v0  = @gi * input
       @v1z = @v1
       @v2z = @v2

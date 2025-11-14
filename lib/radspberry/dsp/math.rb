@@ -95,7 +95,7 @@ module DSP
       offset = arg * @size
       idx = offset.floor
       frac = offset - idx
-      output = idx >= @size ? @table.last : DSP.xfade( @table[idx], @table[idx+1], frac )
+      output = idx >= @size - 1 ? @table.last : DSP.xfade( @table[idx], @table[idx+1], frac )
       # output = @scale * output + offset
     end
   end

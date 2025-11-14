@@ -1,39 +1,45 @@
-require 'radspberry'
+require_relative '../lib/radspberry'
 include DSP
 
+q = 7
+
 puts "\n=== Function Composition Examples ==="
-puts "\n1. Simple composition with >> operator"
-puts "   Creating: Phasor >> Hpf >> Speaker"
+osc1 = Phasor.new(110)
+osc2 = Phasor.new(110 * 1.495)
+hpf = ButterBP.new(100, q:)
+filtered = (osc1 + osc2) >> hpf >> Speaker
 
-# Traditional way:
-# Speaker[GeneratorChain.new([Phasor.new(440), Hpf.new(100, 0.7)])]
+puts "\n2. Changing filter frequency on composed chain"
+puts "\nHighpass filter"
 
-# New composition way:
-osc = Phasor.new(440)
-filtered = osc >> Hpf.new(100, 0.7) >> Speaker
+hpf.freq = osc1.freq
+while hpf.freq < Base.sample_rate/2
+  hpf.freq *= 2**(1/(12.0*3))
+  sleep 0.01
+end
 
-puts "   Playing filtered oscillator..."
-sleep 2
+lpf = ButterLP.new(hpf.freq, q:)
+filtered = (osc1 + osc2) >> lpf >> Speaker
+puts "\nLowpass filter"
+while lpf.freq > osc1.freq
+  lpf.freq *= 2**(-1/12.0)
+  sleep 0.05
+end
 
-puts "\n2. Changing frequency on composed chain"
-osc.freq = 220
-sleep 1
 
 puts "\n3. Parallel composition with + operator"
-puts "   Creating: (Phasor(220) + Phasor(440)) >> Hpf >> Speaker"
+puts "   Creating: (Phasor(220) + Phasor(333)) >> ButterHP >> Speaker"
 
-osc1 = Phasor.new(220)
-osc2 = Phasor.new(440)
-mixed = (osc1 + osc2) >> Hpf.new(80, 0.7) >> Speaker
 
 puts "   Playing mixed oscillators..."
 sleep 2
 
 puts "\n4. Complex multi-stage processing"
-puts "   Creating: SuperSaw >> Hpf(80) >> ZDLP >> Speaker"
+puts "   Creating: SuperSaw >> ButterHP(80) >> ButterLP(1000) >> Speaker"
 
+q = 100
 saw = SuperSaw.new(110)
-complex_chain = saw >> Hpf.new(80, 0.7) >> ZDLP.new >> Speaker
+complex_chain = saw >> ButterHP.new(80, q:) >> ButterLP.new(1000) >> Speaker
 
 puts "   Playing complex chain..."
 saw.spread = 0.5
@@ -64,24 +70,14 @@ puts "   Crossfading from SuperSaw to RpmNoise..."
   sleep 0.5
 end
 
-puts "\n6. Inline composition (no intermediate variables)"
-puts "   Creating everything in one line"
-
-Phasor.new(330) >> Hpf.new(100) >> Speaker
-
-sleep 2
-
 puts "\n7. Three-way mix with processing"
-puts "   (Phasor + SuperSaw + RpmNoise) >> Hpf >> Speaker"
+puts "   (Phasor + SuperSaw + RpmNoise) >> ButterHP >> Speaker"
 
 (Phasor.new(220) + SuperSaw.new(110) + RpmNoise.new) >>
-  Hpf.new(60, 0.5) >>
+  ButterHP.new(60, q: 0.5) >>
   Speaker
 
 sleep 3
 
-puts "\nMuting..."
 Speaker.mute
-sleep 1
-
 puts "\n=== Composition API Demo Complete ==="
