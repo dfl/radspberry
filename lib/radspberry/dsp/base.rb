@@ -55,6 +55,28 @@ module DSP
       end
     end
 
+    # Enable function composition with >> operator
+    def >> (other)
+      case other
+      when Processor, ProcessorChain
+        GeneratorChain.new([self, other])
+      when Module  # Check if it's the Speaker module
+        other[self] if other.respond_to?(:[])
+        self
+      else
+        raise ArgumentError, "Can only compose Generator with Processor, ProcessorChain, or Speaker"
+      end
+    end
+
+    # Parallel composition
+    def + (other)
+      Mixer.new([self, other])
+    end
+
+    # Crossfade composition
+    def crossfade(other, fade = 0.5)
+      XFader.new(self, other, fade)
+    end
 
     def to_wav( seconds, filename: nil, channels: :mono)
       filename ||= "#{self.class}.wav"
@@ -92,6 +114,16 @@ module DSP
       inputs.map{|s| tick(s) }
     end
 
+    # Enable function composition with >> operator
+    def >> (other)
+      case other
+      when Processor, ProcessorChain
+        ProcessorChain.new([self, other])
+      else
+        raise ArgumentError, "Can only compose Processor with another Processor or ProcessorChain"
+      end
+    end
+
   end
 
   class TickerChain < Base
@@ -107,11 +139,23 @@ module DSP
 
   class ProcessorChain < TickerChain
     def tick input
-      @gain * @chain.inject( input ){|x,o| o.tick(x) }
+      @gain * @chain.reduce(input) { |signal, processor| processor.tick(signal) }
     end
 
     def ticks samples
-      @gain * @chain.inject( Vector.zeros(samples) ){|x,o| o.ticks(x) }
+      @gain * @chain.reduce(samples) { |signal, processor| processor.ticks(signal) }
+    end
+
+    # Enable further composition
+    def >> (other)
+      case other
+      when Processor
+        ProcessorChain.new(@chain + [other], @gain)
+      when ProcessorChain
+        ProcessorChain.new(@chain + other.instance_variable_get(:@chain), @gain)
+      else
+        raise ArgumentError, "Can only compose ProcessorChain with Processor or ProcessorChain"
+      end
     end
   end
 
@@ -123,7 +167,7 @@ module DSP
     def initialize mix
       raise ArugmentError, "must be array" unless mix.is_a?(Array)
       @mix  = mix
-      @gain = 1.0 / Math.sqrt( @mix.size )
+      @gain = 1.0 / ::Math.sqrt( @mix.size )
     end
 
     def tick
@@ -132,6 +176,11 @@ module DSP
 
     def ticks samples
       @gain * @mix.ticks_sum( samples )
+    end
+
+    # Allow adding more sources to the mix
+    def + (other)
+      Mixer.new(@mix + [other])
     end
   end
 
@@ -181,7 +230,7 @@ module DSP
         raise ArgumentError, "gains array has wrong size" unless gains.size == size
         gains
       else
-        Array.full_of( 1.0 / Math.sqrt( size ), size )
+        Array.full_of( 1.0 / ::Math.sqrt( size ), size )
       end
     end
 
@@ -205,11 +254,34 @@ module DSP
     end
 
     def tick
-      @gain * @chain.inject( @gen.tick ){|x,o| o.tick(x) }
+      @gain * @chain.reduce(@gen.tick) { |signal, processor| processor.tick(signal) }
     end
 
     def ticks samples
-      @gain * @chain.inject( @gen.ticks(samples) ){|x,o| o.ticks(x) }
+      @gain * @chain.reduce(@gen.ticks(samples)) { |signal, processor| processor.ticks(signal) }
+    end
+
+    # Enable further composition
+    def >> (other)
+      case other
+      when Processor, ProcessorChain
+        GeneratorChain.new([@gen] + @chain + [other], @gain)
+      when Module  # Speaker module
+        other[self] if other.respond_to?(:[])
+        self
+      else
+        raise ArgumentError, "Can only compose GeneratorChain with Processor, ProcessorChain, or Speaker"
+      end
+    end
+
+    # Parallel composition
+    def + (other)
+      Mixer.new([self, other])
+    end
+
+    # Crossfade composition
+    def crossfade(other, fade = 0.5)
+      XFader.new(self, other, fade)
     end
   end
 

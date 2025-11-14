@@ -75,8 +75,9 @@ module DSP
   end
 
   class RpmNoise < PhasorOscillator
+    include DSP::Math
     # param_accessor :beta, :default => 1234 # no range clamping
-    
+
     def initialize( seed = 1234 )
       @beta = seed # || self.beta
       super
