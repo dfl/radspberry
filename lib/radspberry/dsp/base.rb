@@ -217,6 +217,26 @@ module DSP
     def / (gain)
       Mixer.new(@mix, @gain_multiplier / gain)
     end
+
+    # Delegate unknown methods to all generators in the mix
+    # Setters (methods ending with =) are called on all, getters return from first
+    def method_missing(method, *args, &block)
+      if method.to_s.end_with?('=')
+        # Setter: apply to all generators that respond to it
+        @mix.each do |gen|
+          gen.send(method, *args, &block) if gen.respond_to?(method)
+        end
+      elsif @mix.first.respond_to?(method)
+        # Getter: return from first generator
+        @mix.first.send(method, *args, &block)
+      else
+        super
+      end
+    end
+
+    def respond_to_missing?(method, include_private = false)
+      @mix.any? { |gen| gen.respond_to?(method, include_private) } || super
+    end
   end
 
   class XFader < Generator
@@ -355,6 +375,19 @@ module DSP
       WaveFile::Writer.new(filename, format) do |writer|
         writer.write(buffer)
       end
+    end
+
+    # Delegate unknown methods to the wrapped generator
+    def method_missing(method, *args, &block)
+      if @gen.respond_to?(method)
+        @gen.send(method, *args, &block)
+      else
+        super
+      end
+    end
+
+    def respond_to_missing?(method, include_private = false)
+      @gen.respond_to?(method, include_private) || super
     end
   end
 

@@ -45,7 +45,7 @@ module DSP
       @@stream.muted
     end
   
-    def toggleMute
+    def toggle
       @@stream.muted = !@@stream.muted
     end
   
