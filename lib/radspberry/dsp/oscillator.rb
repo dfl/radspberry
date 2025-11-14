@@ -5,10 +5,10 @@ module DSP
 
     def initialize( freq = DEFAULT_FREQ, phase=0 )
       @phasor = Phasor.new( freq, phase )
-      clear
+      clear!
     end
 
-    def clear
+    def clear!
       self
     end
 
@@ -53,7 +53,7 @@ module DSP
       super
     end
 
-    def clear
+    def clear!
       @state = @last_out = 0
     end
   
@@ -83,7 +83,7 @@ module DSP
       super
     end
 
-    def clear
+    def clear!
       @last_out = 0
     end
   

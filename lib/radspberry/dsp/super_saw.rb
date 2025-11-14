@@ -21,8 +21,8 @@ module DSP
       @phasors.each{|p| p.phase = DSP.random }
     end
   
-    def clear  # call this on note on
-      @hpf.clear
+    def clear!  # call this on note on
+      @hpf.clear!
       randomize_phase
     end
   

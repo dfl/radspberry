@@ -14,7 +14,7 @@ module DSP
       @finv = 1.0 / (1.0 + @f)
     end
 
-    def clear 
+    def clear! 
       @state = 0.0
     end
   end
@@ -32,7 +32,7 @@ module DSP
       @finv = 1.0 / (1.0 + @f)
     end
 
-    def clear 
+    def clear! 
       @state = 0.0
     end
 
@@ -63,7 +63,7 @@ module DSP
       @denorm = ANTI_DENORMAL
       update( Vector[*num], Vector[*den] )
       normalize if @a[0] != 1.0
-      clear
+      clear!
     end
 
     def normalize  # what about b0 (gain)
@@ -72,7 +72,7 @@ module DSP
       @a *= inv
     end
   
-    def clear
+    def clear!
       @input  = [0,0,0]
       @output = [0,0,0]
       stop_interpolation
@@ -134,7 +134,7 @@ module DSP
   end
 
   class Biquad2 < Biquad # DFII
-    def clear
+    def clear!
       @state = [0,0]
       stop_interpolation
     end
@@ -387,10 +387,10 @@ module DSP
 
     def initialize(kind: :low)
       @kind = kind
-      clear
+      clear!
     end
 
-    def clear
+    def clear!
       @v0z = 0
       @v1  = 0
       @v2  = 0
@@ -511,10 +511,12 @@ module DSP
 
       if method.to_s.end_with?('=') && @params.include?(param_name)
         # This is a setter for a smoothed parameter
+        # Return the target value so it can be used in control logic
         @target[param_name] = args.first.to_f
       elsif @params.include?(method)
-        # Getter for smoothed parameter - return current smoothed value
-        @current[method]
+        # Getter for smoothed parameter - return target value for control logic
+        # (The actual smoothed value is updated in tick())
+        @target[method]
       else
         # Pass through to wrapped processor
         @processor.send(method, *args)
@@ -544,8 +546,8 @@ module DSP
       @processor.tick(input)
     end
 
-    def clear
-      @processor.clear if @processor.respond_to?(:clear)
+    def clear!
+      @processor.clear! if @processor.respond_to?(:clear!)
     end
 
     # Direct access to the wrapped processor if needed

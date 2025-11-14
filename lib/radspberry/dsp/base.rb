@@ -25,7 +25,7 @@ module DSP
       self.inv_srate = 1.0 / f
     end
 
-    def clear
+    def clear!
     end
 
     # allows for setting multiple values at once
@@ -444,10 +444,10 @@ module DSP
   class OnePole < Processor 
     def initialize
       @gain = @pole = 0
-      clear
+      clear!
     end
 
-    def clear
+    def clear!
       @last_out = 0
     end
 
@@ -460,7 +460,7 @@ module DSP
   class Contour < Processor
     def initialize contour
       self.contour = contour
-      clear
+      clear!
     end
 
     def contour= c
@@ -472,7 +472,7 @@ module DSP
   class Lowpass < OnePole  # envelope smoother, etc.
     def initialize tau
       tau = tau
-      clear
+      clear!
     end
 
     def tau= tau
@@ -485,9 +485,9 @@ module DSP
   class DcBlocker < Processor    #http://www-ccrma.stanford.edu/~jos/filters/
     def initialize f=30
       @r = 1 - (TWO_PI * @f * inv_srate)
-      clear
+      clear!
     end
-    def clear
+    def clear!
       @last_in  = 0
       @last_out = 0
     end
