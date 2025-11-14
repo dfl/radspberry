@@ -8,7 +8,7 @@ module DSP
     class_attribute :srate
     class_attribute :inv_srate
 
-    def sampleRate
+    def sample_rate
       self.class.srate
     end
 
@@ -16,11 +16,11 @@ module DSP
       raise "can't change instance srate"
     end
 
-    def self.sampleRate
+    def self.sample_rate
       self.srate
     end
 
-    def self.sampleRate= f
+    def self.sample_rate= f
       self.srate = f
       self.inv_srate = 1.0 / f
     end
@@ -34,7 +34,7 @@ module DSP
     end
   end
 
-  Base.sampleRate = 44.1e3 # default
+  Base.sample_rate = 44.1e3 # default
 
   class Generator < Base
     def tick
