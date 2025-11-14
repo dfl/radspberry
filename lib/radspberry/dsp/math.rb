@@ -22,6 +22,11 @@ module DSP
     def tan x
       ::Math.tan x
     end
+
+    def exp x
+      ::Math.exp x
+    end
+
   end
 
   # http://www.kvraudio.com/forum/viewtopic.php?t=349859

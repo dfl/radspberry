@@ -461,7 +461,97 @@ module DSP
       @output  = input + @v1
     end
   end
-    
+
+  # Exponential parameter smoother wrapper
+  # Wraps any filter/processor and applies exponential smoothing to parameter changes
+  # This provides smooth, continuous parameter interpolation to prevent zipper noise
+  class ParamSmoother < Processor
+    include Math
+
+    # @param processor [Processor] The filter or processor to wrap
+    # @param params [Array<Symbol>] List of parameters to smooth (e.g., [:freq, :q])
+    # @param tau [Float] Time constant in seconds (default: 0.01 = 10ms)
+    def initialize(processor, params: [:freq], tau: 0.01)
+      @processor = processor
+      @params = params
+      @tau = tau
+
+      # Calculate smoothing coefficient from time constant
+      # alpha = 1 - exp(-1 / (tau * sampleRate))
+      @alpha = 1.0 - exp(-1.0 / (tau * srate))
+
+      # Store current (smoothed) and target values for each parameter
+      @current = {}
+      @target = {}
+
+      # Initialize with current values from the wrapped processor
+      @params.each do |param|
+        if @processor.respond_to?(param)
+          value = @processor.send(param)
+          @current[param] = value.to_f
+          @target[param] = value.to_f
+        end
+      end
+    end
+
+    # Set the time constant for smoothing
+    def tau=(tau)
+      @tau = tau
+      @alpha = 1.0 - exp(-1.0 / (tau * srate))
+    end
+
+    # Set the smoothing time in milliseconds (convenience method)
+    def smooth_time_ms=(ms)
+      self.tau = ms * 1e-3
+    end
+
+    # Generate smooth parameter setters
+    def method_missing(method, *args)
+      param_name = method.to_s.chomp('=').to_sym
+
+      if method.to_s.end_with?('=') && @params.include?(param_name)
+        # This is a setter for a smoothed parameter
+        @target[param_name] = args.first.to_f
+      elsif @params.include?(method)
+        # Getter for smoothed parameter - return current smoothed value
+        @current[method]
+      else
+        # Pass through to wrapped processor
+        @processor.send(method, *args)
+      end
+    end
+
+    def respond_to_missing?(method, include_private = false)
+      param_name = method.to_s.chomp('=').to_sym
+      @params.include?(param_name) || @processor.respond_to?(method, include_private)
+    end
+
+    def tick(input)
+      # Update smoothed parameter values using exponential smoothing
+      # y[n] = y[n-1] + alpha * (target - y[n-1])
+      @params.each do |param|
+        if @current[param] != @target[param]
+          @current[param] += @alpha * (@target[param] - @current[param])
+
+          # Update the wrapped processor with the smoothed value
+          if @processor.respond_to?("#{param}=")
+            @processor.send("#{param}=", @current[param])
+          end
+        end
+      end
+
+      # Process the input through the wrapped processor
+      @processor.tick(input)
+    end
+
+    def clear
+      @processor.clear if @processor.respond_to?(:clear)
+    end
+
+    # Direct access to the wrapped processor if needed
+    attr_reader :processor
+  end
+
 end
 
 # http://www.kvraudio.com/forum/viewtopic.php?t=349859&postdays=0&postorder=asc&start=120

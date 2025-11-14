@@ -82,6 +82,20 @@ module DSP
       Mixer.new([self, other])
     end
 
+    # Signal subtraction
+    def - (other)
+      Mixer.new([self, other * -1.0])
+    end
+
+    # Gain control operators
+    def * (gain)
+      GeneratorChain.new([self], gain)
+    end
+
+    def / (gain)
+      GeneratorChain.new([self], 1.0 / gain)
+    end
+
     # Crossfade composition
     def crossfade(other, fade = 0.5)
       XFader.new(self, other, fade)
@@ -174,10 +188,12 @@ module DSP
       new mix
     end
 
-    def initialize mix
+    def initialize mix, gain_multiplier=1.0
       raise ArugmentError, "must be array" unless mix.is_a?(Array)
       @mix  = mix
-      @gain = 1.0 / ::Math.sqrt( @mix.size )
+      @base_gain = 1.0 / ::Math.sqrt( @mix.size )
+      @gain_multiplier = gain_multiplier
+      @gain = @base_gain * @gain_multiplier
     end
 
     def tick
@@ -190,7 +206,16 @@ module DSP
 
     # Allow adding more sources to the mix
     def + (other)
-      Mixer.new(@mix + [other])
+      Mixer.new(@mix + [other], @gain_multiplier)
+    end
+
+    # Gain control operators
+    def * (gain)
+      Mixer.new(@mix, @gain_multiplier * gain)
+    end
+
+    def / (gain)
+      Mixer.new(@mix, @gain_multiplier / gain)
     end
   end
 
@@ -287,6 +312,20 @@ module DSP
     # Parallel composition
     def + (other)
       Mixer.new([self, other])
+    end
+
+    # Signal subtraction
+    def - (other)
+      Mixer.new([self, other * -1.0])
+    end
+
+    # Gain control operators
+    def * (gain)
+      GeneratorChain.new([@gen] + @chain, @gain * gain)
+    end
+
+    def / (gain)
+      GeneratorChain.new([@gen] + @chain, @gain / gain)
     end
 
     # Crossfade composition
