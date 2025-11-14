@@ -438,11 +438,7 @@ module DSP
 
   end
 
-  class LFO < Oscillator
-
-  end
-
-  class SampleHold < LFO
+  class SampleHold < Oscillator
     def initialize freq = DEFAULT_FREQ, phase = DSP.random
       @latch = Decimator.new( freq, phase )
     end
