@@ -55,20 +55,27 @@ module DSP
       end
     end
 
-    def to_wav( seconds, filename=nil )
-      filename ||= "#{self.class}.wav"    
+
+    def to_wav( seconds, filename: nil, channels: :mono)
+      filename ||= "#{self.class}.wav"
       filename += ".wav" unless filename =~ /\.wav$/i
-      RiffFile.new(filename,"wb+") do |wav|
-        samples = self.sampleRate * seconds
-        if block_given?
-          inv = 1.0 / samples
-          data = samples.times.map{ |s| yield(self, s * inv); self.tick }
-        else
-          data = self.ticks( samples )
-        end
-        rescale = calc_sample_value(-0.5, 16) / [data.max, -data.max].max  # normalize to -0.5dBfs
-        data.map!{|d| (d*rescale).round.to_f.to_i }
-        wav.write(1, self.sampleRate, 16, [data] )
+
+      samples = self.sample_rate * seconds
+      if block_given?
+        inv = 1.0 / samples
+        data = samples.times.map{ |s| yield(self, s * inv); self.tick }
+      else
+        data = self.ticks( samples )
+      end
+
+      rescale = calc_sample_value(-0.5, 16) / [data.max, -data.min].max  # normalize to -0.5dBfs
+      data.map!{|d| (d*rescale).round.to_i }
+
+      format = WaveFile::Format.new(channels, :pcm_16, self.sample_rate.to_i)
+      buffer = WaveFile::Buffer.new(data, format)
+
+      WaveFile::Writer.new(filename, format) do |writer|
+        writer.write(buffer)
       end
     end
 
