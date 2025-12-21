@@ -13,6 +13,11 @@ static volatile size_t read_pos = 0;
 static PaStream *stream = NULL;
 static int stream_active = 0;
 static int sample_rate = 44100;
+static volatile int fading_out = 0;
+static volatile float fade_gain = 1.0f;
+static volatile int muted = 0;  // output silence when muted
+#define FADE_TIME_MS 20
+static int fade_samples = 882;  // calculated from sample rate
 
 // Get available samples to read
 static inline size_t buffer_available(void) {
@@ -35,15 +40,44 @@ static int audio_callback(const void *input, void *output,
                           void *user_data) {
     float *out = (float *)output;
     size_t available = buffer_available();
+    float fade_delta = 1.0f / fade_samples;
+    float local_fade_gain = fade_gain;  // local copy for this callback
 
     for (unsigned long i = 0; i < frame_count; i++) {
-        if (available > 0) {
-            out[i] = ring_buffer[read_pos];
+        float sample;
+
+        if (muted) {
+            // Output pure silence when muted
+            sample = 0.0f;
+            // Still consume from buffer to keep it drained
+            if (available > 0) {
+                read_pos = (read_pos + 1) % BUFFER_SIZE;
+                available--;
+            }
+        } else if (available > 0) {
+            sample = ring_buffer[read_pos];
             read_pos = (read_pos + 1) % BUFFER_SIZE;
             available--;
         } else {
-            out[i] = 0.0f;  // Underrun - output silence
+            sample = 0.0f;  // Underrun - output silence
         }
+
+        // Apply fade-out if requested
+        if (fading_out && !muted) {
+            sample *= local_fade_gain;
+            local_fade_gain -= fade_delta;
+            if (local_fade_gain < 0.0f) {
+                local_fade_gain = 0.0f;
+                muted = 1;  // Auto-mute when fade completes
+            }
+        }
+
+        out[i] = sample;
+    }
+
+    // Write back fade gain
+    if (fading_out) {
+        fade_gain = local_fade_gain;
     }
 
     return paContinue;
@@ -62,10 +96,14 @@ static VALUE rb_start(VALUE self, VALUE rb_srate) {
         rb_raise(rb_eRuntimeError, "Pa_Initialize failed: %s", Pa_GetErrorText(err));
     }
 
-    // Reset buffer
+    // Reset buffer and fade state
     write_pos = 0;
     read_pos = 0;
     memset(ring_buffer, 0, sizeof(ring_buffer));
+    fading_out = 0;
+    fade_gain = 1.0f;
+    muted = 0;
+    fade_samples = (sample_rate * FADE_TIME_MS) / 1000;
 
     err = Pa_OpenDefaultStream(&stream,
                                0,              // no input
@@ -141,6 +179,29 @@ static VALUE rb_active_p(VALUE self) {
     return stream_active ? Qtrue : Qfalse;
 }
 
+// Ruby: NativeAudio.clear - reset the buffer
+static VALUE rb_clear(VALUE self) {
+    write_pos = 0;
+    read_pos = 0;
+    return Qtrue;
+}
+
+// Ruby: NativeAudio.fade_out - trigger fade-out in callback
+static VALUE rb_fade_out(VALUE self) {
+    fading_out = 1;
+    return Qtrue;
+}
+
+// Ruby: NativeAudio.faded? - check if fade is complete
+static VALUE rb_faded_p(VALUE self) {
+    return (fading_out && fade_gain <= 0.0f) ? Qtrue : Qfalse;
+}
+
+// Ruby: NativeAudio.muted? - check if stream is muted (outputting silence)
+static VALUE rb_muted_p(VALUE self) {
+    return muted ? Qtrue : Qfalse;
+}
+
 void Init_radspberry_audio(void) {
     VALUE mNativeAudio = rb_define_module("NativeAudio");
 
@@ -150,4 +211,8 @@ void Init_radspberry_audio(void) {
     rb_define_singleton_method(mNativeAudio, "available", rb_available, 0);
     rb_define_singleton_method(mNativeAudio, "buffered", rb_buffered, 0);
     rb_define_singleton_method(mNativeAudio, "active?", rb_active_p, 0);
+    rb_define_singleton_method(mNativeAudio, "clear", rb_clear, 0);
+    rb_define_singleton_method(mNativeAudio, "fade_out", rb_fade_out, 0);
+    rb_define_singleton_method(mNativeAudio, "faded?", rb_faded_p, 0);
+    rb_define_singleton_method(mNativeAudio, "muted?", rb_muted_p, 0);
 }

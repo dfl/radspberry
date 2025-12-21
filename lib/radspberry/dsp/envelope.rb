@@ -9,6 +9,28 @@
 
 module DSP
 
+  # Simple DC blocking filter (first-order high-pass at ~10Hz)
+  # y[n] = x[n] - x[n-1] + R * y[n-1]
+  class DCBlocker < Processor
+    def initialize(r: 0.995)
+      @r = r
+      @x_prev = 0.0
+      @y_prev = 0.0
+    end
+
+    def tick(input)
+      output = input - @x_prev + @r * @y_prev
+      @x_prev = input
+      @y_prev = output
+      output
+    end
+
+    def clear!
+      @x_prev = 0.0
+      @y_prev = 0.0
+    end
+  end
+
   # Analog-style ADSR using exponential RC curves
   # Based on Will Pirkle / EarLevel Engineering method
   # Sounds more natural than linear envelopes
@@ -569,6 +591,7 @@ module DSP
                    filter_base: 200, filter_mod: 4000)
       @osc = osc_class.respond_to?(:new) ? osc_class.new : osc_class
       @filter = filter_class.respond_to?(:new) ? filter_class.new(1000) : filter_class
+      @dc_blocker = DCBlocker.new
 
       # Analog-style envelopes
       @amp_env = AnalogEnvelope.new(
@@ -602,10 +625,11 @@ module DSP
       env_val = @filter_env.tick
       @filter.freq = @filter_base + env_val * @filter_mod
 
-      # Signal path: osc -> filter -> amp envelope
+      # Signal path: osc -> filter -> amp envelope -> DC blocker
       sample = @osc.tick
       sample = @filter.tick(sample)
-      sample * @amp_env.tick
+      sample = sample * @amp_env.tick
+      @dc_blocker.tick(sample)
     end
 
     def ticks(samples)

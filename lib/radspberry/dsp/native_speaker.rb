@@ -15,6 +15,7 @@ module DSP
     extend self
 
     CHUNK_SIZE = 1024
+    FADE_TIME = 0.02  # 20ms
 
     @synth = nil
     @gain = 1.0
@@ -84,9 +85,29 @@ module DSP
     end
 
     def stop
+      return unless @running
+
+      # Stop the producer thread first
       @running = false
-      @thread&.join(1.0)
+      @thread&.join(0.5)
       @thread = nil
+
+      # Trigger fade-out - the C callback will auto-mute when done
+      # Stream keeps running silently (no click!)
+      if defined?(NativeAudio) && NativeAudio.active?
+        NativeAudio.fade_out
+
+        # Wait for mute to engage
+        timeout = Time.now + 0.2
+        until NativeAudio.muted? || Time.now > timeout
+          sleep 0.002
+        end
+        # Stream stays active but silent - no Pa_StopStream = no click
+      end
+    end
+
+    def shutdown
+      # Actually stop PortAudio (for cleanup)
       NativeAudio.stop if defined?(NativeAudio) && NativeAudio.active?
     end
 
@@ -98,7 +119,8 @@ module DSP
     private
 
     def prefill
-      4.times { push_chunk }
+      fade_in_samples  # First chunk fades in
+      3.times { push_chunk }
     end
 
     def push_chunk
@@ -110,6 +132,17 @@ module DSP
         out.respond_to?(:to_a) ? out.to_a : out
       end
       NativeAudio.push(samples)
+    end
+
+    def fade_in_samples
+      fade_samples = (FADE_TIME * @synth.srate).to_i
+      out = @synth.ticks(fade_samples)
+      out = out * @gain unless @gain == 1.0
+      out = out.respond_to?(:to_a) ? out.to_a : out
+
+      # Simple linear ramp 0→1
+      out.each_with_index.map { |s, i| s * (i.to_f / fade_samples) }
+        .tap { |samples| NativeAudio.push(samples) }
     end
 
     def producer_loop
