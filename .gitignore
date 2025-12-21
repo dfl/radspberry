@@ -1,2 +1,10 @@
 .DS_Store
 Gemfile.lock
+
+# Compiled C extension
+*.bundle
+*.so
+*.o
+*.dSYM/
+ext/radspberry_audio/Makefile
+ext/radspberry_audio/mkmf.log

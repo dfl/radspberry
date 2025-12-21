@@ -7,10 +7,11 @@ apply filters, and generate audio in real-time with a simple, expressive API.
 
 ## Features
 
-* Real-time output with ffi-portaudio (though timing is a bit unstable)
+* Real-time output with ffi-portaudio
+* Native C extension for glitch-free audio (see below)
 * Output to speaker or wave file
 * Basic oscillator and filter classes
-* MIDI has not been implemented yet (portmidi)
+* MIDI input via portmidi
 
 ## Example Usage
 
@@ -26,17 +27,45 @@ Speaker[ Phasor.new * 0.5 ]
   sleep 1
 end
 Speaker.mute
-
-
-# Demonstrate that timing is unstable! 😬
-20.times { Speaker.toggle; sleep 0.1 }
 ```
 
 See `/examples` for more.
 
+## Audio Stability & the GVL
+
+The default `Speaker` uses ffi-portaudio's callback mode, where PortAudio's native audio
+thread calls into Ruby. This requires acquiring Ruby's Global VM Lock (GVL), which means
+heavy Ruby work (computation, GC) can cause audio glitches.
+
+### NativeSpeaker (Glitch-Free Audio)
+
+For stable audio during heavy Ruby work, use `NativeSpeaker` which uses a C extension:
+
+```ruby
+# Instead of Speaker, use NativeSpeaker
+NativeSpeaker.new(SuperSaw.new(110), volume: 0.3)
+
+# Audio stays smooth even during heavy computation
+10.times { heavy_computation }
+
+NativeSpeaker.stop
+```
+
+The C callback reads from a lock-free ring buffer without touching Ruby or the GVL.
+A Ruby producer thread fills the buffer in the background.
+
+**Build the extension:**
+```bash
+cd ext/radspberry_audio
+ruby extconf.rb
+make
+cp radspberry_audio.bundle ../../lib/radspberry_audio/
+```
+
 ## Requirements
 
-* Depends on ffi-portaudio (which depends on portaudio libs)
+* portaudio library
+* ffi-portaudio gem
 
 ## Installation
 
@@ -54,6 +83,11 @@ cd radspberry
 # Install dependencies
 bundle install
 
-# Run an example
-bundle exec rake examples/example_composition.rb
+# Build native extension (optional, for NativeSpeaker)
+cd ext/radspberry_audio && ruby extconf.rb && make
+mkdir -p ../../lib/radspberry_audio
+cp radspberry_audio.bundle ../../lib/radspberry_audio/
+
+# Run the demo
+ruby examples/buffered_demo.rb
 ```
