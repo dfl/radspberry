@@ -111,26 +111,24 @@ module DSP
   end
 
   # Oversampler wrapper - processes at higher internal sample rate
+  #
+  # Uses 4x oversampling with elliptic quarter-band anti-aliasing filter.
+  # The quarter-band filter has cutoff at 1/8 of the 4x rate = original Nyquist.
+  #
   # Usage:
-  #   oversampled_filter = Oversampler.new(MyFilter.new, factor: 4)
+  #   oversampled_filter = DSP.oversample(MyFilter.new)
   #   output = oversampled_filter.tick(input)
   class Oversampler < Processor
-    attr_reader :factor
+    FACTOR = 4
 
-    def initialize(processor, factor: 2)
-      raise ArgumentError, "Factor must be 2 or 4" unless [2, 4].include?(factor)
+    def initialize(processor)
       @processor = processor
-      @factor = factor
+      @upsample_filter = EllipticQuarterBandFilter.new
+      @downsample_filter = EllipticQuarterBandFilter.new
+    end
 
-      # Create anti-aliasing filters
-      case factor
-      when 2
-        @upsample_filter = SteepHalfBandFilter.new
-        @downsample_filter = SteepHalfBandFilter.new
-      when 4
-        @upsample_filter = EllipticQuarterBandFilter.new
-        @downsample_filter = EllipticQuarterBandFilter.new
-      end
+    def factor
+      FACTOR
     end
 
     def clear!
@@ -140,22 +138,24 @@ module DSP
     end
 
     def tick(input)
-      # Upsample: insert zeros and filter
-      sum = 0.0
-      @factor.times do |i|
-        # Zero-stuffing: only first sample is real input, rest are zeros
-        upsampled = (i == 0) ? input * @factor : 0.0
-        filtered = @upsample_filter.tick(upsampled)
+      # Upsample 4x: zero-stuff with gain compensation
+      # Only first sample has signal, rest are zeros
+      up0 = @upsample_filter.tick(input * FACTOR)
+      up1 = @upsample_filter.tick(0.0)
+      up2 = @upsample_filter.tick(0.0)
+      up3 = @upsample_filter.tick(0.0)
 
-        # Process at oversampled rate
-        processed = @processor.tick(filtered)
+      # Process 4 samples at 4x rate
+      out0 = @processor.tick(up0)
+      out1 = @processor.tick(up1)
+      out2 = @processor.tick(up2)
+      out3 = @processor.tick(up3)
 
-        # Accumulate for decimation (we'll take the average)
-        sum += @downsample_filter.tick(processed)
-      end
-
-      # Downsample: take last filtered sample
-      sum / @factor
+      # Downsample: filter all, return last (decimation by 4)
+      @downsample_filter.tick(out0)
+      @downsample_filter.tick(out1)
+      @downsample_filter.tick(out2)
+      @downsample_filter.tick(out3)
     end
 
     # Forward method calls to wrapped processor
@@ -172,26 +172,78 @@ module DSP
     end
   end
 
-  # Global oversampling configuration
-  module GlobalOversampling
-    class << self
-      attr_accessor :factor
+  # Convenience method to create oversampled processor
+  def self.oversample(processor)
+    Oversampler.new(processor)
+  end
 
-      def enabled?
-        @factor && @factor > 1
-      end
+  # Wraps a complete signal chain (Generator >> Processors) with 4x oversampling
+  # The entire chain runs at 4x sample rate, with decimation at output
+  #
+  # Usage:
+  #   chain = OversampledChain.new do
+  #     osc = Phasor.new(440)
+  #     filter = AudioRateSVF.new(freq: 2000, drive: 12.0)
+  #     osc >> filter
+  #   end
+  #   output = chain.tick
+  #
+  class OversampledChain < Generator
+    FACTOR = 4
 
-      def internal_sample_rate
-        Base.srate * (@factor || 1)
+    def initialize(&block)
+      # Temporarily set sample rate to 4x for building the chain
+      @original_srate = Base.srate
+      @oversampled_srate = @original_srate * FACTOR
+
+      # Build chain at oversampled rate
+      Base.sample_rate = @oversampled_srate
+      @chain = block.call
+      Base.sample_rate = @original_srate
+
+      @downsample_filter = EllipticQuarterBandFilter.new
+    end
+
+    def factor
+      FACTOR
+    end
+
+    def tick
+      # Generate 4 samples at oversampled rate
+      out0 = @chain.tick
+      out1 = @chain.tick
+      out2 = @chain.tick
+      out3 = @chain.tick
+
+      # Decimate with anti-aliasing filter
+      @downsample_filter.tick(out0)
+      @downsample_filter.tick(out1)
+      @downsample_filter.tick(out2)
+      @downsample_filter.tick(out3)
+    end
+
+    def clear!
+      @chain.clear! if @chain.respond_to?(:clear!)
+      @downsample_filter.clear!
+    end
+
+    # Forward to chain for parameter access
+    def method_missing(method, *args, &block)
+      if @chain.respond_to?(method)
+        @chain.send(method, *args, &block)
+      else
+        super
       end
     end
 
-    @factor = 1  # Default: no oversampling
+    def respond_to_missing?(method, include_private = false)
+      @chain.respond_to?(method, include_private) || super
+    end
   end
 
-  # Convenience method to create oversampled processor
-  def self.oversample(processor, factor: 2)
-    Oversampler.new(processor, factor: factor)
+  # Convenience for creating oversampled chains
+  def self.oversampled(&block)
+    OversampledChain.new(&block)
   end
 
 end
