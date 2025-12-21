@@ -32,6 +32,13 @@ require_relative './radspberry/dsp/super_saw'
 # Modulation (must come before filters so they get the mixin)
 require_relative './radspberry/dsp/modulation'
 
+# Utilities
+require_relative './radspberry/dsp/curvable'
+require_relative './radspberry/dsp/oversampling'
+require_relative './radspberry/dsp/note'
+require_relative './radspberry/dsp/clock'
+require_relative './radspberry/dsp/refinements'
+
 # Filters
 require_relative './radspberry/dsp/filter/dc_blocker'
 require_relative './radspberry/dsp/filter/one_pole'
@@ -45,8 +52,6 @@ require_relative './radspberry/dsp/envelope/analog'
 require_relative './radspberry/dsp/envelope/fiber'
 require_relative './radspberry/dsp/envelope/amp'
 require_relative './radspberry/dsp/envelope/presets'
-
-# Sequencers
 require_relative './radspberry/dsp/sequencer/step'
 require_relative './radspberry/dsp/sequencer/arpeggiator'
 
@@ -54,8 +59,3 @@ require_relative './radspberry/dsp/sequencer/arpeggiator'
 require_relative './radspberry/dsp/voice/voice'
 require_relative './radspberry/dsp/voice/sequenced'
 
-# Utilities
-require_relative './radspberry/dsp/oversampling'
-require_relative './radspberry/dsp/note'
-require_relative './radspberry/dsp/clock'
-require_relative './radspberry/dsp/refinements'

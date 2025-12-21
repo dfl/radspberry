@@ -31,7 +31,8 @@ module DSP
 
 
   class ADEnvelope < FiberGenerator
-    attr_accessor :attack, :decay, :curve
+    include Curvable
+    attr_accessor :attack, :decay
 
     def initialize(attack: 0.01, decay: 0.1, curve: :linear)
       @attack = attack
@@ -63,23 +64,12 @@ module DSP
       end
     end
 
-    private
-
-    def apply_curve(value, direction)
-      case @curve
-      when :linear then value
-      when :exponential
-        direction == :up ? value ** 2 : value ** 0.5
-      when :logarithmic
-        direction == :up ? value ** 0.5 : value ** 2
-      else value
-      end
     end
-  end
 
 
   class ADSREnvelope < FiberGenerator
-    attr_accessor :attack, :decay, :sustain, :release, :curve
+    include Curvable
+    attr_accessor :attack, :decay, :sustain, :release
 
     def initialize(attack: 0.01, decay: 0.1, sustain: 0.7, release: 0.2, curve: :linear)
       @attack = attack
@@ -134,17 +124,5 @@ module DSP
       end
     end
 
-    private
-
-    def apply_curve(value, direction)
-      case @curve
-      when :linear then value
-      when :exponential
-        direction == :up ? value ** 2 : value ** 0.5
-      when :logarithmic
-        direction == :up ? value ** 0.5 : value ** 2
-      else value
-      end
-    end
   end
 end
