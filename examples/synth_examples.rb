@@ -185,10 +185,10 @@ lfo = Phasor.new(3)  # 3Hz LFO
 filter = ButterLP.new(1000)
            .modulate(:freq, lfo, range: 200..3000)
 
-# Build the chain
-chain = noise >> filter >> Gain.new(0.4)
+# Build the chain (noise >> modulated filter)
+chain = noise >> filter
 
-Speaker.play(chain, volume: 0.5)
+Speaker.play(chain, volume: 0.3)
 sleep 3
 Speaker.stop
 

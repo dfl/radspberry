@@ -73,7 +73,12 @@ module DSP
         other[self] if other.respond_to?(:[])
         self
       else
-        raise ArgumentError, "Can only compose Generator with Processor, ProcessorChain, or Speaker"
+        # Duck-type check for Processor-like objects (e.g. ModulatedProcessor)
+        if other.respond_to?(:tick) && other.method(:tick).arity != 0
+          GeneratorChain.new([self, other])
+        else
+          raise ArgumentError, "Can only compose Generator with Processor, ProcessorChain, or Speaker"
+        end
       end
     end
 

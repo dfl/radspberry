@@ -26,6 +26,9 @@ module DSP
     def new(synth, opts = {})
       stop if @running
 
+      # Brief pause to let audio hardware settle after stop
+      sleep 0.05 if defined?(NativeAudio)
+
       @synth = synth.is_a?(Class) ? synth.new : synth
       @gain = opts.fetch(:volume, 1.0)
       @muted = false
@@ -33,19 +36,14 @@ module DSP
       raise ArgumentError, "#{@synth.class} doesn't respond to ticks!" unless @synth.respond_to?(:ticks)
 
       # Start native audio
-      $stderr.puts "DEBUG: Starting NativeAudio..." if $DEBUG
       NativeAudio.start(@synth.srate.to_i)
-      $stderr.puts "DEBUG: NativeAudio started" if $DEBUG
 
       # Pre-fill buffer
-      $stderr.puts "DEBUG: Prefilling..." if $DEBUG
       prefill
-      $stderr.puts "DEBUG: Prefilled" if $DEBUG
 
       # Start producer thread
       @running = true
       @thread = Thread.new { producer_loop }
-      $stderr.puts "DEBUG: Producer thread started" if $DEBUG
 
       self
     end
@@ -92,17 +90,18 @@ module DSP
       @thread&.join(0.5)
       @thread = nil
 
-      # Trigger fade-out - the C callback will auto-mute when done
-      # Stream keeps running silently (no click!)
+      # Fade out then stop the stream
       if defined?(NativeAudio) && NativeAudio.active?
         NativeAudio.fade_out
 
-        # Wait for mute to engage
-        timeout = Time.now + 0.2
+        # Wait for fade to complete
+        timeout = Time.now + 0.1
         until NativeAudio.muted? || Time.now > timeout
           sleep 0.002
         end
-        # Stream stays active but silent - no Pa_StopStream = no click
+
+        # Actually stop the stream so we can start a new one
+        NativeAudio.stop
       end
     end
 
