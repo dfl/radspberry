@@ -12,6 +12,7 @@ apply filters, and generate audio in real-time with a simple, expressive API.
 * Output to speaker or wave file
 * Basic oscillator and filter classes
 * MIDI input via portmidi
+* Refinements for scoped DSP extensions
 
 ## Example Usage
 
@@ -61,6 +62,25 @@ ruby extconf.rb
 make
 cp radspberry_audio.bundle ../../lib/radspberry_audio/
 ```
+
+## Refinements (Scoped Extensions)
+
+By default, radspberry adds helper methods globally to `Array`, `Vector`, and `Module`.
+If you prefer explicit, lexically-scoped extensions, use refinements instead:
+
+```ruby
+require 'radspberry'
+using DSP::Refinements
+
+# These methods only work in this file:
+[1, 2, 3].to_v                    # => Vector[1, 2, 3]
+Vector.zeros(4)                   # => Vector[0.0, 0.0, 0.0, 0.0]
+[osc1, osc2].tick_sum             # Sum tick values from array of oscillators
+```
+
+Refinements are activated with `using` and are scoped to the current file—they won't
+leak into other parts of your codebase. This is useful for libraries or when you want
+to avoid global monkey-patching.
 
 ## Requirements
 
