@@ -446,23 +446,6 @@ module DSP
     attr_reader :freq, :q, :g, :drive
     attr_accessor :kind
 
-    # Fast tan approximation for x in [0, 0.5] (normalized frequency range)
-    # Uses Pade approximant - accurate to ~0.01% in typical filter range
-    def self.fast_tan_pade(x)
-      # tan(pi*x) approximation for x in [0, 0.49]
-      # Pade(3,3) approximant
-      x2 = x * x
-      x * (PI + x2 * (-4.135 + x2 * 1.595)) / (1.0 + x2 * (-1.627 + x2 * 0.217))
-    end
-
-    # Fast tanh for saturation - polynomial approximation
-    def self.fast_tanh(x)
-      return -1.0 if x < -3.0
-      return 1.0 if x > 3.0
-      x2 = x * x
-      x * (27.0 + x2) / (27.0 + 9.0 * x2)
-    end
-
     def initialize(freq: 1000.0, q: 0.707, kind: :low, drive: 0.0)
       @kind = kind
       @drive = drive
@@ -518,7 +501,7 @@ module DSP
 
     # Convert frequency to g coefficient using fast approximation
     def freq_to_g(f)
-      AudioRateSVF.fast_tan_pade(f * inv_srate)
+      DSP.fast_tan(f * inv_srate)
     end
 
     # Set frequency using fast approximation (for audio-rate modulation)
@@ -534,7 +517,9 @@ module DSP
     end
 
     def update_coefficients
-      @k = 1.0 / @q
+      # For 4-pole mode, reduce resonance per stage to prevent instability
+      effective_q = @four_pole ? @q * 0.8 : @q
+      @k = 1.0 / effective_q
       # Precompute for implicit solution (avoids per-sample division)
       denom = 1.0 + @g * (@g + @k)
       @a1 = 1.0 / denom
@@ -545,7 +530,7 @@ module DSP
     # Saturation function - soft clipping
     def saturate(x)
       return x if @drive <= 0.0
-      AudioRateSVF.fast_tanh(x * @drive_gain) / @drive_gain
+      DSP.fast_tanh(x * @drive_gain) / @drive_gain
     end
 
     def tick(input)
@@ -562,6 +547,15 @@ module DSP
       @z1 = 2.0 * bp - @z1
       @z2 = 2.0 * lp - @z2
 
+      # Emergency limiting only - prevents blowup without coloring normal operation
+      # tanh(x/64)*64 is essentially linear up to ±20, then soft limits
+      if @z1.abs > 20.0
+        @z1 = DSP.fast_tanh(@z1 * 0.015625) * 64.0
+      end
+      if @z2.abs > 20.0
+        @z2 = DSP.fast_tanh(@z2 * 0.015625) * 64.0
+      end
+
       if @four_pole
         # Second stage - cascade with inter-stage saturation
         x2 = @drive > 0 ? saturate(lp) : lp
@@ -572,6 +566,14 @@ module DSP
 
         @z1_2 = 2.0 * bp2 - @z1_2
         @z2_2 = 2.0 * lp2 - @z2_2
+
+        # Emergency limiting for second stage
+        if @z1_2.abs > 20.0
+          @z1_2 = DSP.fast_tanh(@z1_2 * 0.015625) * 64.0
+        end
+        if @z2_2.abs > 20.0
+          @z2_2 = DSP.fast_tanh(@z2_2 * 0.015625) * 64.0
+        end
 
         lp, bp, hp = lp2, bp2, x - lp2 - @k * bp2
       end

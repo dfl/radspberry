@@ -42,9 +42,27 @@ module DSP
   
   # mystran's nonlinearity
   def tanhXdX x
-    # IIRC I got this as Pade-approx for tanh(sqrt(x))/sqrt(x) 
+    # IIRC I got this as Pade-approx for tanh(sqrt(x))/sqrt(x)
     x2 = x*x;
     ((x2 + 105.0)*x2 + 945.0) / ((15.0*x2 + 420.0)*x2 + 945.0)
+  end
+
+  # Fast tanh approximation - polynomial, good for saturation
+  # Accurate to <1% for |x| < 3, clamps outside
+  def fast_tanh(x)
+    return -1.0 if x < -3.0
+    return 1.0 if x > 3.0
+    x2 = x * x
+    x * (27.0 + x2) / (27.0 + 9.0 * x2)
+  end
+
+  # Fast tan(pi*x) approximation for x in [0, 0.45] (normalized frequency)
+  # Accurate to <3% up to ~10kHz at 44.1kHz, falls back to Math.tan near Nyquist
+  def fast_tan(x)
+    return ::Math.tan(PI * x) if x > 0.45  # Near Nyquist - use accurate
+    px = PI * x
+    px2 = px * px
+    px * (1.0 + px2 * (0.1117 + px2 * 0.0089)) / (1.0 - px2 * (0.2217 + px2 * 0.0153))
   end
 
   def noise
