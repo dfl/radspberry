@@ -6,14 +6,13 @@ module DSP
     param_accessor :mix,    :default => 0.75
 
     # Normalization factor to keep output in [-1, 1] range
-    # Phasors output 0-1, and we sum 7 of them with mixing coefficients
-    # At mix=0.75: center~0.58, side~0.59, worst case peak ~4.0
-    # We use 0.3 to bring typical peaks to ~0.8-0.9 with headroom
-    NORMALIZE = 0.3
+    # Phasors are centered (-0.5 to 0.5), and we sum 7 of them with mixing coefficients
+    # At mix=0.75: center~0.58, side~0.59, worst case peak ~2.0
+    # We use 0.5 to bring typical peaks to reasonable levels
+    NORMALIZE = 0.5
 
     def initialize freq = DEFAULT_FREQ
       @master  = Phasor.new
-      @hpf     = ButterHP.new( @master.freq )
       setup_tables
       @phasors = @@offsets.size.times.map{ Phasor.new }
       randomize_phase
@@ -21,32 +20,35 @@ module DSP
       @mix      = self.mix
       self.freq = freq
     end
-    
+
     def randomize_phase
       @master.phase = DSP.random
       @phasors.each{|p| p.phase = DSP.random }
     end
-  
+
     def clear!  # call this on note on
-      @hpf.clear!
       randomize_phase
     end
-  
+
     def freq= f
-      @hpf.freq = @master.freq = @freq = f
+      @master.freq = @freq = f
       detune_phasors
     end
 
     def tick
-      osc =  @@center[ @mix ] * @master.tick
-      osc +=   @@side[ @mix ] * @phasors.tick_sum #inject(0){|sum,p| sum + p.tick }
-      NORMALIZE * @hpf.tick( osc )
+      # Center phasors from 0-1 to -0.5 to 0.5 range to eliminate DC
+      osc =  @@center[ @mix ] * (@master.tick - 0.5)
+      @phasors.each { |p| osc += @@side[ @mix ] * (p.tick - 0.5) }
+      NORMALIZE * osc
     end
 
     def ticks samples
-      osc =  @@center[ @mix ] * @master.ticks(samples)
-      osc =    @@side[ @mix ] * @phasors.ticks_sum( samples, osc ) #inject( osc ){|sum,p| sum + p.ticks(samples).to_v }
-      NORMALIZE * @hpf.ticks( osc )
+      # Center phasors from 0-1 to -0.5 to 0.5 range to eliminate DC
+      osc = @@center[ @mix ] * (@master.ticks(samples) - Vector.elements([0.5] * samples))
+      @phasors.each do |p|
+        osc += @@side[ @mix ] * (p.ticks(samples) - Vector.elements([0.5] * samples))
+      end
+      NORMALIZE * osc
     end
     
     private 
