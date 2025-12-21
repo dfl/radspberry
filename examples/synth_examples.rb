@@ -169,25 +169,90 @@ end
 Speaker.stop
 puts "   Done.\n\n"
 
+#──────────────────────────────────────────────────────────────
+# Example 8: Modulation DSL
+#──────────────────────────────────────────────────────────────
+
+puts "8. Modulation DSL"
+puts "   Filter cutoff modulated by LFO"
+puts
+
+# Create a noise source and filter with LFO modulation
+noise = Noise.new
+lfo = Phasor.new(3)  # 3Hz LFO
+
+# Modulate filter frequency with range
+filter = ButterLP.new(1000)
+           .modulate(:freq, lfo, range: 200..3000)
+
+# Build the chain
+chain = noise >> filter >> Gain.new(0.4)
+
+Speaker.play(chain, volume: 0.5)
+sleep 3
+Speaker.stop
+
+puts "   Done.\n\n"
+
+#──────────────────────────────────────────────────────────────
+# Example 9: Voice parameter aliases
+#──────────────────────────────────────────────────────────────
+
+puts "9. Voice parameter aliases"
+puts "   Tweaking cutoff, resonance, envelope"
+puts
+
+v = Voice.acid
+Speaker.play(v, volume: 0.4)
+
+# Use parameter aliases for clean API
+v.set(cutoff: 300, resonance: 0.9, attack: 0.001)
+v.play(:a2)
+sleep 0.3
+
+# Sweep cutoff up
+5.times do |i|
+  v.cutoff = 300 + i * 400
+  sleep 0.1
+end
+
+v.stop
+sleep 0.3
+Speaker.stop
+
+puts "   Done.\n\n"
+
 puts <<~SUMMARY
   ╔═════════════════════════════════════════════════════╗
   ║  ALL EXAMPLES COMPLETE                              ║
   ║                                                     ║
-  ║  New API highlights:                                ║
-  ║    :c4.freq          # => 261.63                    ║
-  ║    :c4.major         # => [:c4, :e4, :g4]           ║
-  ║    :c4 + 7           # => :g4 (transpose)           ║
+  ║  API highlights:                                    ║
   ║                                                     ║
-  ║    Voice.acid(:a2)   # instant 303                  ║
-  ║    Voice.pad(:c3)    # lush pad                     ║
-  ║    Voice.pluck(:e4)  # plucky lead                  ║
+  ║  Notes & Scales:                                    ║
+  ║    :c4.freq              # => 261.63                ║
+  ║    :c4.major             # => [:c4, :e4, :g4]       ║
+  ║    :c4.scale(:blues)     # blues scale              ║
+  ║    :c4 + 7               # => :g4 (transpose)       ║
   ║                                                     ║
-  ║    Env.perc          # quick attack-decay           ║
-  ║    Env.pad           # slow envelope                ║
+  ║  Voice Presets:                                     ║
+  ║    Voice.acid(:a2)       # instant 303              ║
+  ║    Voice.pad(:c3)        # lush pad                 ║
+  ║    Voice.pluck(:e4)      # plucky sound             ║
+  ║    Voice.lead(:g4)       # mono lead                ║
   ║                                                     ║
-  ║    Speaker.play(v)   # start                        ║
-  ║    Speaker.stop      # stop                         ║
+  ║  Voice Parameters:                                  ║
+  ║    v.cutoff = 2000       # filter frequency         ║
+  ║    v.resonance = 0.8     # filter Q                 ║
+  ║    v.set(attack: 0.01)   # bulk update              ║
   ║                                                     ║
+  ║  Modulation DSL:                                    ║
+  ║    filter.modulate(:freq, lfo, range: 200..4000)   ║
+  ║                                                     ║
+  ║  Envelopes:                                         ║
+  ║    Env.perc              # quick hit                ║
+  ║    Env.pad               # slow envelope            ║
+  ║                                                     ║
+  ║  Timing:                                            ║
   ║    Clock.bpm = 140                                  ║
   ║    sleep 1.beat                                     ║
   ╚═════════════════════════════════════════════════════╝

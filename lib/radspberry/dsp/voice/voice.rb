@@ -97,12 +97,61 @@ module DSP
       @amp_env.gate_off!
     end
 
+    # Parameter aliases for cleaner API
     def cutoff
-      @filter.freq
+      @filter_base
     end
 
     def cutoff=(f)
       @filter_base = DSP.to_freq(f)
+    end
+
+    def resonance
+      @filter.q
+    end
+
+    def resonance=(r)
+      @filter.q = r
+    end
+    alias_method :res, :resonance
+    alias_method :res=, :resonance=
+
+    def attack
+      @amp_env.attack
+    end
+
+    def attack=(t)
+      @amp_env.attack = t
+    end
+
+    def decay
+      @amp_env.decay
+    end
+
+    def decay=(t)
+      @amp_env.decay = t
+    end
+
+    def sustain
+      @amp_env.sustain
+    end
+
+    def sustain=(l)
+      @amp_env.sustain = l
+    end
+
+    def release
+      @amp_env.release
+    end
+
+    def release=(t)
+      @amp_env.release = t
+    end
+
+    # Bulk parameter update
+    def set(**params)
+      params.each { |k, v| send("#{k}=", v) }
+      self
     end
 
     def tick

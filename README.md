@@ -22,19 +22,122 @@ A real-time audio DSP library for Ruby based on ffi-portaudio, designed to creat
 
 ```ruby
 require 'radspberry'
+include DSP
 
-# Start a simple oscillator
-Speaker[ Phasor.new * 0.5 ]
-
-# Change the frequency dynamically
-2.times do
-  Speaker.synth.freq /= 2
-  sleep 1
-end
-Speaker.mute
+# Play a note with Voice preset
+voice = Voice.acid
+Speaker.play(voice, volume: 0.4)
+voice.play(:a2)
+sleep 0.5
+voice.stop
+sleep 0.3
+Speaker.stop
 ```
 
 See `/examples` for more.
+
+## Note Symbols
+
+Use Ruby symbols for musical notes:
+
+```ruby
+:c4.freq           # => 261.63 Hz
+:a4.midi           # => 69
+:c4.major          # => [:c4, :e4, :g4]
+:a3.minor7         # => [:a3, :c4, :e4, :g4]
+:c4 + 7            # => :g4 (transpose up 7 semitones)
+
+# Scales
+:c3.scale(:major)              # => [:c3, :d3, :e3, :f3, :g3, :a3, :b3, :c4]
+:c3.scale(:blues, octaves: 2)  # Two octaves of blues scale
+:c3.scale(:dorian)             # Modal scales
+```
+
+Available scales: `major`, `minor`, `harmonic_minor`, `melodic_minor`, `dorian`, `phrygian`, `lydian`, `mixolydian`, `locrian`, `pentatonic`, `minor_pentatonic`, `blues`, `chromatic`, `whole_tone`.
+
+## Voice Presets
+
+Ready-to-use synthesizer voices:
+
+```ruby
+# Presets - optionally pass a note to start immediately
+v = Voice.acid(:a2)    # TB-303 style acid bass
+v = Voice.pad(:c3)     # Lush pad with slow attack
+v = Voice.pluck(:e4)   # Plucky percussive sound
+v = Voice.lead(:g4)    # Monophonic lead
+
+# Control voices
+v.play(:c4)            # Trigger note
+v.stop                 # Release note
+
+# Parameter aliases for clean API
+v.cutoff = 2000        # Filter base frequency
+v.resonance = 0.8      # Filter resonance (alias: v.res)
+v.attack = 0.01        # Amp envelope attack
+v.decay = 0.2          # Amp envelope decay
+v.sustain = 0.6        # Amp envelope sustain level
+v.release = 0.3        # Amp envelope release
+
+# Bulk parameter update
+v.set(cutoff: 1500, resonance: 0.5, attack: 0.05)
+```
+
+## Envelope Presets
+
+```ruby
+Env.perc                    # Quick percussive hit
+Env.pluck                   # Plucked string decay
+Env.pad                     # Slow pad envelope
+Env.adsr(attack: 0.1, decay: 0.2, sustain: 0.6, release: 0.4)
+Env.ad(attack: 0.01, decay: 0.5)
+```
+
+## Timing Extensions
+
+```ruby
+Clock.bpm = 140
+
+sleep 1.beat      # Sleep for one beat (0.429s at 140 BPM)
+sleep 0.5.beats   # Half beat
+sleep 1.bar       # One bar (4 beats)
+sleep 2.bars      # Two bars
+```
+
+## Modulation DSL
+
+Declaratively modulate any parameter with an LFO or other source:
+
+```ruby
+filter = ButterLP.new(1000)
+lfo = Phasor.new(5)  # 5Hz LFO
+
+# Range-based modulation
+filter = filter.modulate(:freq, lfo, range: 200..4000)
+
+# Block-based (custom curve)
+filter = filter.modulate(:q, lfo) { |v| 0.5 + v * 10 }
+
+# Chain multiple modulations
+filter = ButterLP.new(1000)
+           .modulate(:freq, lfo1, range: 200..4000)
+           .modulate(:q, lfo2, range: 0.5..10)
+
+# Tick as normal - modulation happens automatically
+output = filter.tick(input)
+```
+
+## Speaker API
+
+```ruby
+# Play any generator
+Speaker.play(voice, volume: 0.4)
+
+# Stop playback
+Speaker.stop
+
+# Check status
+Speaker.playing?   # => true/false
+```
 
 ## Installation
 
@@ -165,21 +268,6 @@ Refinements are activated with `using` and are scoped to the current file—they
 ## Future Ideas
 
 Some directions worth exploring:
-
-### Applicative-style modulation
-
-Instead of manually updating parameters in a loop, declare modulation relationships:
-
-```ruby
-lfo = LFO.new(0.5)
-filter = ButterLP.new(1000)
-
-# Declarative: LFO modulates filter frequency between 200-2000 Hz
-lfo.modulate(filter, :freq, range: 200..2000)
-
-# Or with a custom curve
-lfo.modulate(filter, :freq) { |lfo_val| 200 * (2 ** (lfo_val * 3)) }
-```
 
 ### Fibers for envelopes/sequencers
 
