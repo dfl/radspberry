@@ -57,7 +57,7 @@ voice = Voice.new(
   filter_class: ButterLP,
   amp_attack: 0.005, amp_decay: 0.1, amp_sustain: 0.0, amp_release: 0.05,
   filter_attack: 0.001, filter_decay: 0.15,
-  filter_base: 100, filter_mod: 3000
+  filter_base: 250, filter_mod: 3500
 )
 
 seq = SequencedSynth.new(

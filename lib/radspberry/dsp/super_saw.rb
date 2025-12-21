@@ -4,7 +4,13 @@ module DSP
   class SuperSaw < Oscillator
     param_accessor :spread, :default => 0.5, :after_set => Proc.new{detune_phasors}
     param_accessor :mix,    :default => 0.75
-    
+
+    # Normalization factor to keep output in [-1, 1] range
+    # Phasors output 0-1, and we sum 7 of them with mixing coefficients
+    # At mix=0.75: center~0.58, side~0.59, worst case peak ~4.0
+    # We use 0.3 to bring typical peaks to ~0.8-0.9 with headroom
+    NORMALIZE = 0.3
+
     def initialize freq = DEFAULT_FREQ
       @master  = Phasor.new
       @hpf     = ButterHP.new( @master.freq )
@@ -34,13 +40,13 @@ module DSP
     def tick
       osc =  @@center[ @mix ] * @master.tick
       osc +=   @@side[ @mix ] * @phasors.tick_sum #inject(0){|sum,p| sum + p.tick }
-      @hpf.tick( osc )
+      NORMALIZE * @hpf.tick( osc )
     end
-  
+
     def ticks samples
       osc =  @@center[ @mix ] * @master.ticks(samples)
       osc =    @@side[ @mix ] * @phasors.ticks_sum( samples, osc ) #inject( osc ){|sum,p| sum + p.ticks(samples).to_v }
-      @hpf.ticks( osc )
+      NORMALIZE * @hpf.ticks( osc )
     end
     
     private 

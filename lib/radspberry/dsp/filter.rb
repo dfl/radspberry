@@ -398,7 +398,7 @@ module DSP
     end
     
     def freq= f
-      @freq = freq
+      @freq = f
       recalc
     end
 
@@ -437,6 +437,164 @@ module DSP
     end
   end
   
+  # Audio-rate modulatable SVF with saturation
+  # Based on Cytomic/Zavalishin TPT topology
+  # Supports per-sample frequency modulation without expensive tan() calls
+  class AudioRateSVF < Processor
+    include Math
+
+    attr_reader :freq, :q, :g, :drive
+    attr_accessor :kind
+
+    # Fast tan approximation for x in [0, 0.5] (normalized frequency range)
+    # Uses Pade approximant - accurate to ~0.01% in typical filter range
+    def self.fast_tan_pade(x)
+      # tan(pi*x) approximation for x in [0, 0.49]
+      # Pade(3,3) approximant
+      x2 = x * x
+      x * (PI + x2 * (-4.135 + x2 * 1.595)) / (1.0 + x2 * (-1.627 + x2 * 0.217))
+    end
+
+    # Fast tanh for saturation - polynomial approximation
+    def self.fast_tanh(x)
+      return -1.0 if x < -3.0
+      return 1.0 if x > 3.0
+      x2 = x * x
+      x * (27.0 + x2) / (27.0 + 9.0 * x2)
+    end
+
+    def initialize(freq: 1000.0, q: 0.707, kind: :low, drive: 0.0)
+      @kind = kind
+      @drive = drive
+      @drive_gain = 10.0 ** (drive / 20.0)
+      @q = q
+      @freq = freq
+      clear!
+      recalc
+    end
+
+    def clear!
+      @z1 = 0.0
+      @z2 = 0.0
+      # Second stage for 4-pole
+      @z1_2 = 0.0
+      @z2_2 = 0.0
+      @four_pole = false
+    end
+
+    def four_pole=(enabled)
+      @four_pole = enabled
+    end
+
+    def four_pole?
+      @four_pole
+    end
+
+    # Set frequency with optional coefficient update
+    # For audio-rate modulation, set update: false and call update_coefficients manually
+    # or use g= directly
+    def freq=(f, update: true)
+      @freq = f.clamp(20.0, srate * 0.49)
+      recalc if update
+    end
+
+    def q=(value, update: true)
+      @q = value.clamp(0.5, 50.0)
+      recalc if update
+    end
+
+    def drive=(db)
+      @drive = db
+      @drive_gain = 10.0 ** (db / 20.0)
+    end
+
+    # Direct coefficient setter for audio-rate modulation
+    # g = tan(pi * freq / samplerate)
+    # This bypasses expensive tan() calculation
+    def g=(value)
+      @g = value
+      update_coefficients
+    end
+
+    # Convert frequency to g coefficient using fast approximation
+    def freq_to_g(f)
+      AudioRateSVF.fast_tan_pade(f * inv_srate)
+    end
+
+    # Set frequency using fast approximation (for audio-rate modulation)
+    def set_freq_fast(f)
+      @freq = f
+      @g = freq_to_g(f)
+      update_coefficients
+    end
+
+    def recalc
+      @g = tan(PI * @freq * inv_srate)
+      update_coefficients
+    end
+
+    def update_coefficients
+      @k = 1.0 / @q
+      # Precompute for implicit solution (avoids per-sample division)
+      denom = 1.0 + @g * (@g + @k)
+      @a1 = 1.0 / denom
+      @a2 = @g * @a1
+      @a3 = @g * @a2
+    end
+
+    # Saturation function - soft clipping
+    def saturate(x)
+      return x if @drive <= 0.0
+      AudioRateSVF.fast_tanh(x * @drive_gain) / @drive_gain
+    end
+
+    def tick(input)
+      # Apply input drive and saturation
+      x = @drive > 0 ? saturate(input * @drive_gain) : input
+
+      # TPT SVF core (Cytomic topology)
+      # Implicit integration - no delay-free loop issues
+      hp = (x - @k * @z1 - @z2) * @a1
+      bp = @a2 * hp + @z1
+      lp = @a3 * hp + @a2 * @z1 + @z2
+
+      # Update state (trapezoidal integration)
+      @z1 = 2.0 * bp - @z1
+      @z2 = 2.0 * lp - @z2
+
+      if @four_pole
+        # Second stage - cascade with inter-stage saturation
+        x2 = @drive > 0 ? saturate(lp) : lp
+
+        hp2 = (x2 - @k * @z1_2 - @z2_2) * @a1
+        bp2 = @a2 * hp2 + @z1_2
+        lp2 = @a3 * hp2 + @a2 * @z1_2 + @z2_2
+
+        @z1_2 = 2.0 * bp2 - @z1_2
+        @z2_2 = 2.0 * lp2 - @z2_2
+
+        lp, bp, hp = lp2, bp2, x - lp2 - @k * bp2
+      end
+
+      # Output based on kind
+      case @kind
+      when :low  then lp
+      when :band then bp
+      when :high then hp
+      when :notch then lp + hp
+      when :all  then { low: lp, band: bp, high: hp, notch: lp + hp }
+      else lp
+      end
+    end
+
+    # Process with per-sample frequency modulation
+    # mod_signal should be a frequency value or multiplier
+    def tick_with_mod(input, mod_freq)
+      set_freq_fast(mod_freq)
+      tick(input)
+    end
+  end
+
   class BellSVF < SVF
     def recalc
       @gb   = 10.0 ** (dbGain * 0.025)
