@@ -63,6 +63,55 @@ make
 cp radspberry_audio.bundle ../../lib/radspberry_audio/
 ```
 
+## Audio-Rate SVF Filter
+
+The `AudioRateSVF` is a TPT/Cytomic-style state variable filter optimized for audio-rate modulation:
+
+```ruby
+# Create filter with saturation
+svf = AudioRateSVF.new(freq: 1000, q: 4.0, kind: :low, drive: 12.0)
+
+# Audio-rate frequency modulation (efficient - uses fast tan approximation)
+lfo = Phasor.new(5)  # 5Hz LFO
+noise = Noise.new
+
+loop do
+  mod_freq = 500 + lfo.tick * 2000  # Modulate 500-2500Hz
+  output = svf.tick_with_mod(noise.tick, mod_freq)
+end
+
+# Filter modes: :low, :band, :high, :notch
+# 4-pole mode (24dB/oct):
+svf.four_pole = true
+```
+
+## 4x Oversampling
+
+Oversampling reduces aliasing from nonlinear processing (saturation, distortion). Uses a 12th-order elliptic anti-aliasing filter.
+
+### Wrap a single processor
+
+```ruby
+svf = AudioRateSVF.new(freq: 2000, drive: 18.0)
+oversampled = DSP.oversample(svf)
+chain = noise >> oversampled
+```
+
+### Run entire chain at 4x (recommended)
+
+```ruby
+chain = DSP.oversampled do
+  osc = Phasor.new(440)
+  filter = AudioRateSVF.new(freq: 2000, drive: 12.0)
+  osc >> filter
+end
+
+# Everything inside runs at 176.4kHz, decimated to 44.1kHz at output
+chain.to_wav(2, filename: "smooth_saturation.wav")
+```
+
+The chain approach is cleaner because all components use the correct sample rate automatically, and there's only one decimation point at output.
+
 ## Refinements (Scoped Extensions)
 
 By default, radspberry adds helper methods globally to `Array`, `Vector`, and `Module`.
