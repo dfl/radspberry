@@ -26,69 +26,111 @@ module DSP
   module Speaker
     extend self
 
+    @@backend = nil  # :native or :callback
     @@stream = nil
 
-    param_accessor :volume, :delegate => "@@stream.gain", :default => 1.0
-    param_accessor :synth,  :delegate => "@@stream"
+    # Check if native extension is available
+    def native_available?
+      defined?(NativeAudio) && NativeAudio.respond_to?(:start)
+    end
 
     # Primary API: Speaker.play(synth) / Speaker.stop
-    def play(synth, volume: 1.0, dc_block: false, frame_size: 2**12)
-      stop if @@stream
+    # Uses NativeSpeaker (buffered) by default if available
+    def play(synth, volume: 1.0, buffered: nil)
+      stop if playing?
       synth = synth.new if synth.is_a?(Class)
-      @@stream = AudioStream.new(synth, frame_size, volume, dc_block: dc_block)
+
+      # Default to native/buffered if available
+      use_native = buffered.nil? ? native_available? : buffered
+
+      if use_native && native_available?
+        NativeSpeaker.new(synth, volume: volume)
+        @@backend = :native
+      else
+        @@stream = AudioStream.new(synth, 2**12, volume)
+        @@backend = :callback
+      end
       self
     end
 
     def stop
-      return unless @@stream
-      @@stream.stop rescue nil
-      @@stream.close rescue nil
-      @@stream = nil
+      case @@backend
+      when :native
+        NativeSpeaker.stop
+      when :callback
+        @@stream&.stop rescue nil
+        @@stream&.close rescue nil
+        @@stream = nil
+      end
+      @@backend = nil
+    end
+
+    def volume
+      case @@backend
+      when :native then NativeSpeaker.volume
+      when :callback then @@stream&.gain || 1.0
+      else 1.0
+      end
+    end
+
+    def volume=(val)
+      case @@backend
+      when :native then NativeSpeaker.volume = val
+      when :callback then @@stream.gain = val if @@stream
+      end
+    end
+
+    def synth
+      case @@backend
+      when :native then NativeSpeaker.synth
+      when :callback then @@stream&.synth
+      end
     end
 
     # Legacy API (still works)
     def new(_synth, opts = {})
-      play(_synth,
-        volume: opts.fetch(:volume, 1.0),
-        dc_block: opts.fetch(:dc_block, false),
-        frame_size: opts[:frameSize] || 2**12
-      )
+      play(_synth, volume: opts.fetch(:volume, 1.0))
     end
 
     def [](opts = {})
       return play(opts) if opts.is_a?(Class) || opts.is_a?(DSP::Base)
-      raise ArgumentError, "no stream initialized yet!" unless @@stream
-      synth[opts.delete(:synth) || {}]
+      raise ArgumentError, "no stream initialized yet!" unless playing?
       opts.each_pair { |k, v| send "#{k}=", v }
       self
     end
 
-    def dc_block=(val)
-      @@stream.dc_block = val if @@stream
-    end
-
-    def dc_block
-      @@stream&.dc_block
-    end
-
     def mute
-      @@stream.muted = true if @@stream
+      case @@backend
+      when :native then NativeSpeaker.mute
+      when :callback then @@stream.muted = true if @@stream
+      end
     end
 
     def unmute
-      @@stream.muted = false if @@stream
+      case @@backend
+      when :native then NativeSpeaker.unmute
+      when :callback then @@stream.muted = false if @@stream
+      end
     end
 
     def muted?
-      @@stream&.muted
+      case @@backend
+      when :native then NativeSpeaker.muted?
+      when :callback then @@stream&.muted
+      else false
+      end
     end
 
     def toggle
-      @@stream.muted = !@@stream.muted if @@stream
+      muted? ? unmute : mute
     end
 
     def playing?
-      !!@@stream
+      !!@@backend
+    end
+
+    def buffered?
+      @@backend == :native
     end
   end
 
