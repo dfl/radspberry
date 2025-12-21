@@ -24,22 +24,24 @@ module DSP
     @thread = nil
 
     def new(synth, opts = {})
-      # Always stop cleanly first
-      stop if @running
+      new_synth = synth.is_a?(Class) ? synth.new : synth
+      raise ArgumentError, "#{new_synth.class} doesn't respond to ticks!" unless new_synth.respond_to?(:ticks)
 
-      @synth = synth.is_a?(Class) ? synth.new : synth
+      # If already running, just swap the synth (no pop!)
+      if @running && NativeAudio.active?
+        @synth = new_synth
+        @gain = opts.fetch(:volume, 1.0)
+        return self
+      end
+
+      # First time: start everything
+      @synth = new_synth
       @gain = opts.fetch(:volume, 1.0)
       @muted = false
 
-      raise ArgumentError, "#{@synth.class} doesn't respond to ticks!" unless @synth.respond_to?(:ticks)
-
-      # Start native audio
       NativeAudio.start(@synth.srate.to_i)
-
-      # Pre-fill buffer
       prefill
 
-      # Start producer thread
       @running = true
       @thread = Thread.new { producer_loop }
 
@@ -81,24 +83,21 @@ module DSP
     end
 
     def stop
+      # Don't actually stop the stream - just let it run silently
+      # This prevents pops between play/stop/play cycles
+    end
+
+    def shutdown!
+      # Actually stop everything (call this on exit)
       return unless @running
 
-      # Stop the producer thread first
       @running = false
       @thread&.join(0.5)
       @thread = nil
 
-      # Fade out then stop the stream
       if defined?(NativeAudio) && NativeAudio.active?
         NativeAudio.fade_out
-
-        # Wait for fade to complete
-        timeout = Time.now + 0.1
-        until NativeAudio.muted? || Time.now > timeout
-          sleep 0.002
-        end
-
-        # Actually stop the stream so we can start a new one
+        sleep 0.05
         NativeAudio.stop
       end
     end
