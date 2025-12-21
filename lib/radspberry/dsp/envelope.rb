@@ -31,6 +31,47 @@ module DSP
     end
   end
 
+  # Convenience constructors for common envelope shapes
+  module Env
+    extend self
+
+    # Quick percussive hit
+    def perc(attack: 0.005, decay: 0.2)
+      AnalogADEnvelope.new(attack: attack, decay: decay)
+    end
+
+    # Very short pluck
+    def pluck(attack: 0.001, decay: 0.1)
+      AnalogADEnvelope.new(attack: attack, decay: decay)
+    end
+
+    # Slow pad envelope
+    def pad(attack: 0.5, decay: 0.3, sustain: 0.7, release: 0.8)
+      AnalogEnvelope.new(attack: attack, decay: decay, sustain: sustain, release: release)
+    end
+
+    # Classic ADSR with sensible defaults
+    def adsr(attack: 0.01, decay: 0.1, sustain: 0.7, release: 0.3)
+      AnalogEnvelope.new(attack: attack, decay: decay, sustain: sustain, release: release)
+    end
+
+    # Attack-decay only
+    def ad(attack: 0.01, decay: 0.2)
+      AnalogADEnvelope.new(attack: attack, decay: decay)
+    end
+
+    # Slow attack swell
+    def swell(attack: 1.0, decay: 0.5, sustain: 0.8, release: 0.5)
+      AnalogEnvelope.new(attack: attack, decay: decay, sustain: sustain, release: release)
+    end
+
+    # Gate-only (instant attack, instant release)
+    def gate
+      AnalogEnvelope.new(attack: 0.001, decay: 0.001, sustain: 1.0, release: 0.001)
+    end
+  end
+
+
   # Analog-style ADSR using exponential RC curves
   # Based on Will Pirkle / EarLevel Engineering method
   # Sounds more natural than linear envelopes
@@ -43,6 +84,16 @@ module DSP
 
     attr_accessor :attack_time, :decay_time, :sustain_level, :release_time
     attr_reader :state, :output
+
+    # Aliases for more natural API
+    alias_method :attack,  :attack_time
+    alias_method :attack=, :attack_time=
+    alias_method :decay,   :decay_time
+    alias_method :decay=,  :decay_time=
+    alias_method :sustain, :sustain_level
+    alias_method :sustain=,:sustain_level=
+    alias_method :release, :release_time
+    alias_method :release=,:release_time=
 
     # TCO = Target Coefficient Overshoot
     # Small values (0.0001) = more exponential
@@ -602,34 +653,96 @@ module DSP
   # A complete synth voice with analog-style envelopes
   class Voice < Generator
     attr_reader :osc, :filter, :amp_env, :filter_env
-    attr_accessor :freq
+    attr_accessor :filter_base, :filter_mod
 
-    def initialize(osc_class: SuperSaw, filter_class: ButterLP,
-                   amp_attack: 0.01, amp_decay: 0.1, amp_sustain: 0.8, amp_release: 0.3,
-                   filter_attack: 0.01, filter_decay: 0.3,
-                   filter_base: 200, filter_mod: 4000)
-      @osc = osc_class.respond_to?(:new) ? osc_class.new : osc_class
-      @filter = filter_class.respond_to?(:new) ? filter_class.new(1000) : filter_class
-
-      # Analog-style envelopes
-      @amp_env = AnalogEnvelope.new(
-        attack: amp_attack, decay: amp_decay,
-        sustain: amp_sustain, release: amp_release
-      )
-      @filter_env = AnalogADEnvelope.new(attack: filter_attack, decay: filter_decay)
-
+    # Accept osc/filter as class or instance
+    def initialize(osc: SuperSaw, filter: ButterLP, amp_env: nil, filter_env: nil,
+                   filter_base: 200, filter_mod: 4000, &block)
+      @osc = osc.is_a?(Class) ? osc.new : osc
+      @filter = filter.is_a?(Class) ? filter.new(1000) : filter
+      @amp_env = amp_env || Env.adsr
+      @filter_env = filter_env || Env.perc
       @filter_base = filter_base
       @filter_mod = filter_mod
+
+      # Allow block-based configuration
+      block.call(self) if block
     end
 
+    # Presets
+    def self.acid(note = nil)
+      v = new(
+        osc: RpmSaw,
+        filter: ButterLP,
+        amp_env: Env.adsr(attack: 0.005, decay: 0.1, sustain: 0.0, release: 0.05),
+        filter_env: Env.perc(attack: 0.001, decay: 0.15),
+        filter_base: 250,
+        filter_mod: 3500
+      )
+      v.play(note) if note
+      v
+    end
+
+    def self.pad(note = nil)
+      v = new(
+        osc: SuperSaw,
+        filter: ButterLP,
+        amp_env: Env.pad,
+        filter_env: Env.ad(attack: 0.5, decay: 1.0),
+        filter_base: 300,
+        filter_mod: 2000
+      )
+      v.play(note) if note
+      v
+    end
+
+    def self.pluck(note = nil)
+      v = new(
+        osc: RpmSquare,
+        filter: ButterLP,
+        amp_env: Env.adsr(attack: 0.002, decay: 0.15, sustain: 0.3, release: 0.1),
+        filter_env: Env.pluck,
+        filter_base: 400,
+        filter_mod: 5000
+      )
+      v.play(note) if note
+      v
+    end
+
+    def self.lead(note = nil)
+      v = new(
+        osc: RpmSaw,
+        filter: ButterLP,
+        amp_env: Env.adsr(attack: 0.01, decay: 0.2, sustain: 0.6, release: 0.2),
+        filter_env: Env.ad(attack: 0.01, decay: 0.3),
+        filter_base: 500,
+        filter_mod: 3000
+      )
+      v.play(note) if note
+      v
+    end
+
+    # Frequency: accepts Hz, MIDI, or note symbol
     def freq=(f)
-      @freq = f
-      @osc.freq = f if @osc.respond_to?(:freq=)
+      @freq = DSP.to_freq(f)
+      @osc.freq = @freq if @osc.respond_to?(:freq=)
     end
 
-    def note_on(note_or_freq)
-      f = note_or_freq < 128 ? midi_to_freq(note_or_freq) : note_or_freq
-      self.freq = f
+    def freq
+      @freq
+    end
+
+    # Aliases for less surprise
+    def play(note)
+      note_on(note)
+    end
+
+    def stop
+      note_off
+    end
+
+    def note_on(note)
+      self.freq = note
       @amp_env.gate_on!
       @filter_env.trigger!
     end
@@ -638,12 +751,24 @@ module DSP
       @amp_env.gate_off!
     end
 
+    # Direct envelope access with cleaner names
+    def volume=(v)
+      # Could add a gain stage, for now just document it's not supported
+      raise NotImplementedError, "Use amp_env for volume shaping"
+    end
+
+    def cutoff
+      @filter.freq
+    end
+
+    def cutoff=(f)
+      @filter_base = DSP.to_freq(f)
+    end
+
     def tick
-      # Update filter from envelope
       env_val = @filter_env.tick
       @filter.freq = @filter_base + env_val * @filter_mod
 
-      # Signal path: osc -> filter -> amp envelope
       sample = @osc.tick
       sample = @filter.tick(sample)
       sample * @amp_env.tick
@@ -651,12 +776,6 @@ module DSP
 
     def ticks(samples)
       samples.times.map { tick }.to_v
-    end
-
-    private
-
-    def midi_to_freq(note)
-      440.0 * (2.0 ** ((note - 69) / 12.0))
     end
   end
 

@@ -31,17 +31,35 @@ module DSP
     param_accessor :volume, :delegate => "@@stream.gain", :default => 1.0
     param_accessor :synth,  :delegate => "@@stream"
 
-    def new _synth, opts={}
-      if @@stream
-        # Stop and close previous stream cleanly
-        @@stream.stop rescue nil
-        @@stream.close rescue nil
-      end
-      _synth = _synth.new if _synth.is_a?(Class) # instantiate
-      frame_size = opts[:frameSize] || 2**12
-      gain = opts.fetch(:volume, 1.0)
-      dc_block = opts.fetch(:dc_block, false)
-      @@stream = AudioStream.new(_synth, frame_size, gain, dc_block: dc_block)
+    # Primary API: Speaker.play(synth) / Speaker.stop
+    def play(synth, volume: 1.0, dc_block: false, frame_size: 2**12)
+      stop if @@stream
+      synth = synth.new if synth.is_a?(Class)
+      @@stream = AudioStream.new(synth, frame_size, volume, dc_block: dc_block)
+      self
+    end
+
+    def stop
+      return unless @@stream
+      @@stream.stop rescue nil
+      @@stream.close rescue nil
+      @@stream = nil
+    end
+
+    # Legacy API (still works)
+    def new(_synth, opts = {})
+      play(_synth,
+        volume: opts.fetch(:volume, 1.0),
+        dc_block: opts.fetch(:dc_block, false),
+        frame_size: opts[:frameSize] || 2**12
+      )
+    end
+
+    def [](opts = {})
+      return play(opts) if opts.is_a?(Class) || opts.is_a?(DSP::Base)
+      raise ArgumentError, "no stream initialized yet!" unless @@stream
+      synth[opts.delete(:synth) || {}]
+      opts.each_pair { |k, v| send "#{k}=", v }
       self
     end
 
@@ -53,30 +71,25 @@ module DSP
       @@stream&.dc_block
     end
 
-    def [] opts={}
-      return new(opts) if opts.is_a?( Class ) || opts.is_a?( DSP::Base )
-      raise ArgumentError, "no stream initialized yet!" unless @@stream
-      synth[ opts.delete(:synth) || {} ]
-      opts.each_pair{ |k,v| send "#{k}=", v }
-      self
-    end
-
     def mute
-      @@stream.muted = true
+      @@stream.muted = true if @@stream
     end
 
     def unmute
-      @@stream.muted = false
+      @@stream.muted = false if @@stream
     end
 
     def muted?
-      @@stream.muted
+      @@stream&.muted
     end
 
     def toggle
-      @@stream.muted = !@@stream.muted
+      @@stream.muted = !@@stream.muted if @@stream
     end
 
+    def playing?
+      !!@@stream
+    end
   end
 
   class AudioStream < FFI::PortAudio::Stream
