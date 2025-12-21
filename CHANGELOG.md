@@ -2,7 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [0.3.0] - 2025-12-21
+
+### Added
+- `NativeSpeaker` with C extension for glitch-free audio via lock-free ring buffer
+- `AudioRateSVF` TPT/Cytomic-style state variable filter with audio-rate modulation support
+- 4x oversampling support with 12th-order elliptic anti-aliasing filter
+- `DSP.oversample` and `DSP.oversampled` block syntax for oversampling chains
+- ADSR envelopes, sequencer, and arpeggiator modules
+- Refinements module (`DSP::Refinements`) for scoped DSP extensions
+- Click-free audio stop with fade-out and DC blocking
+- Auto-detection of audio device sample rate
+
+### Fixed
+- SuperSaw DC offset by centering phasors
+- Oscillator clipping issues
+- Envelopes thread-safety
+- Sequencers thread-safety
+- Oversampling to use quarter-band filter correctly for 4x only
+
+### Changed
+- Improved Speaker reliability with auto-detected sample rates
 
 ## [0.2.0] - 2025-11-14
 
@@ -22,33 +47,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Updated `to_wav` method to use WaveFile::Format, WaveFile::Buffer, and WaveFile::Writer
 
 ### Fixed
-- Fixed `RpmNoise` missing `include DSP::Math` (caused NoMethodError for `sin`)
-- Fixed Speaker frameSize parameter handling (nil was breaking PortAudio initialization)
-- Fixed `Math.sqrt` namespace issues in `Mixer` and `GainMixer` (now uses `::Math.sqrt`)
-- Fixed normalization bug in `to_wav` (changed `-data.max` to `-data.min`)
+- `RpmNoise` missing `include DSP::Math` (caused NoMethodError for `sin`)
+- Speaker frameSize parameter handling (nil was breaking PortAudio initialization)
+- `Math.sqrt` namespace issues in `Mixer` and `GainMixer` (now uses `::Math.sqrt`)
+- Normalization bug in `to_wav` (changed `-data.max` to `-data.min`)
 
 ## [0.1.2] - 2014-03-16
+
+### Added
+- Zero-delay filters (ZDLP, ZDHP)
 
 ### Changed
 - Decoupled SuperSaw `mix` parameter from `spread` parameter
 - Fixed SuperSaw `calc_side` polynomial calculation
-
-### Added
-- Zero-delay filters (ZDLP, ZDHP)
-- Additional filter cleanup and improvements
-
-## [0.1.2] - 2012-05-17
-
-### Changed
-- Cleaned up vector behavior for `Generator#ticks`
-- Added `ArrayExtensions#to_v` for cleaner vector conversion
 
 ## [0.1.1] - 2012-05-16
 
 ### Added
 - Speaker enhancements
 - `param_accessor` macro for parameter management
-- First release of working gem
 
 ### Changed
 - Updated example to use `include DSP` namespace
@@ -69,9 +86,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Mixer and XFader for combining signals
 - Speaker module with PortAudio integration
 - MIDI support
-- Inspired by ffi-portaudio
 
-[Unreleased]: https://github.com/yourusername/radspberry/compare/v0.1.2...HEAD
-[0.1.2]: https://github.com/yourusername/radspberry/compare/v0.1.1...v0.1.2
-[0.1.1]: https://github.com/yourusername/radspberry/compare/v0.1.0...v0.1.1
-[0.1.0]: https://github.com/yourusername/radspberry/releases/tag/v0.1.0
+[Unreleased]: https://github.com/dfl/radspberry/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/dfl/radspberry/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/dfl/radspberry/compare/v0.1.2...v0.2.0
+[0.1.2]: https://github.com/dfl/radspberry/compare/v0.1.1...v0.1.2
+[0.1.1]: https://github.com/dfl/radspberry/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/dfl/radspberry/releases/tag/v0.1.0
