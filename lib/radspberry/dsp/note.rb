@@ -20,6 +20,23 @@ module Note
     add9:   [0, 4, 7, 14],
   }.freeze
 
+  SCALES = {
+    major:            [0, 2, 4, 5, 7, 9, 11],
+    minor:            [0, 2, 3, 5, 7, 8, 10],
+    harmonic_minor:   [0, 2, 3, 5, 7, 8, 11],
+    melodic_minor:    [0, 2, 3, 5, 7, 9, 11],
+    dorian:           [0, 2, 3, 5, 7, 9, 10],
+    phrygian:         [0, 1, 3, 5, 7, 8, 10],
+    lydian:           [0, 2, 4, 6, 7, 9, 11],
+    mixolydian:       [0, 2, 4, 5, 7, 9, 10],
+    locrian:          [0, 1, 3, 5, 6, 8, 10],
+    pentatonic:       [0, 2, 4, 7, 9],
+    minor_pentatonic: [0, 3, 5, 7, 10],
+    blues:            [0, 3, 5, 6, 7, 10],
+    chromatic:        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+    whole_tone:       [0, 2, 4, 6, 8, 10],
+  }.freeze
+
   A4_FREQ = 440.0
   A4_MIDI = 69
 
@@ -55,6 +72,17 @@ module Note
     CHORDS[type].map { |i| midi_to_sym(m + i) }
   end
 
+  def scale(sym, type, octaves: 1)
+    m = midi(sym)
+    intervals = SCALES[type] or raise ArgumentError, "Unknown scale: #{type}"
+    notes = []
+    octaves.times do |oct|
+      intervals.each { |i| notes << midi_to_sym(m + i + (oct * 12)) }
+    end
+    notes << midi_to_sym(m + (octaves * 12))  # include top note
+    notes
+  end
+
   def transpose(sym, semitones)
     midi_to_sym(midi(sym) + semitones)
   end
@@ -87,6 +115,11 @@ class Symbol
     define_method(chord_type) do
       note? ? Note.chord(self, chord_type) : super()
     end
+  end
+
+  # Scale helper: :c3.scale(:dorian) or :c3.scale(:blues, octaves: 2)
+  def scale(type, octaves: 1)
+    note? ? Note.scale(self, type, octaves: octaves) : super()
   end
 
   # Transpose operators (Symbol doesn't have these by default)

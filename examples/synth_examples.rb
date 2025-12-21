@@ -30,14 +30,15 @@ puts "   :a3.freq = #{:a3.freq.round(2)} Hz"
 puts "   :c4.major = #{:c4.major.inspect}"
 puts
 
-osc = SuperSaw.new(:a3.freq)
-env = Env.adsr(attack: 0.1, decay: 0.2, sustain: 0.6, release: 0.4)
-synth = AmpEnvelope.new(osc, env)
+voice = Voice.new(
+  osc: SuperSaw,
+  amp_env: Env.adsr(attack: 0.1, decay: 0.2, sustain: 0.6, release: 0.4)
+)
 
-Speaker.play(synth, volume: 0.3)
-env.gate_on!
+Speaker.play(voice, volume: 0.3)
+voice.play(:a3)
 sleep 0.8
-env.gate_off!
+voice.stop
 sleep 0.5
 Speaker.stop
 
