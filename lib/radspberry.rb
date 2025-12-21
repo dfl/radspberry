@@ -29,6 +29,9 @@ require_relative './radspberry/dsp/native_speaker'
 require_relative './radspberry/dsp/oscillator'
 require_relative './radspberry/dsp/super_saw'
 
+# Modulation (must come before filters so they get the mixin)
+require_relative './radspberry/dsp/modulation'
+
 # Filters
 require_relative './radspberry/dsp/filter/dc_blocker'
 require_relative './radspberry/dsp/filter/one_pole'
