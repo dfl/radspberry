@@ -9,6 +9,20 @@ require 'ffi-portaudio'
 
 module DSP
 
+  # Initialize sample rate from audio device - call this before creating DSP objects
+  def self.init_sample_rate_from_device!
+    FFI::PortAudio::API.Pa_Initialize
+    device = FFI::PortAudio::API.Pa_GetDefaultOutputDevice
+    if device >= 0
+      device_info = FFI::PortAudio::API.Pa_GetDeviceInfo(device)
+      device_srate = device_info[:defaultSampleRate].to_i
+      if device_srate > 0 && device_srate != Base.srate.to_i
+        Base.sample_rate = device_srate
+      end
+    end
+    FFI::PortAudio::API.Pa_Terminate
+  end
+
   module Speaker
     extend self
 
@@ -18,12 +32,25 @@ module DSP
     param_accessor :synth,  :delegate => "@@stream"
 
     def new _synth, opts={}
-      @@stream.try(:close)
+      if @@stream
+        # Stop and close previous stream cleanly
+        @@stream.stop rescue nil
+        @@stream.close rescue nil
+      end
       _synth = _synth.new if _synth.is_a?(Class) # instantiate
       frame_size = opts[:frameSize] || 2**12
       gain = opts.fetch(:volume, 1.0)
-      @@stream = AudioStream.new(_synth, frame_size, gain)
+      dc_block = opts.fetch(:dc_block, false)
+      @@stream = AudioStream.new(_synth, frame_size, gain, dc_block: dc_block)
       self
+    end
+
+    def dc_block=(val)
+      @@stream.dc_block = val if @@stream
+    end
+
+    def dc_block
+      @@stream&.dc_block
     end
 
     def [] opts={}
@@ -55,7 +82,7 @@ module DSP
   class AudioStream < FFI::PortAudio::Stream
     include FFI::PortAudio
     attr_accessor :gain, :synth, :clip_warning
-    attr_reader :muted
+    attr_reader :muted, :dc_block
 
     # Fade time in seconds
     FADE_TIME = 0.02  # 20ms
@@ -63,7 +90,7 @@ module DSP
     # Maximum absolute sample value before clipping
     MAX_SAMPLE = 1.0
 
-    def initialize gen, frameSize=2**12, gain=1.0
+    def initialize gen, frameSize=2**12, gain=1.0, dc_block: false
       @synth = gen
       @gain  = gain
       @muted = false
@@ -72,10 +99,22 @@ module DSP
       @fading_in = false
       @clip_warning = true  # Warn on clipping
       @clipped = false
-      @fade_samples = (FADE_TIME * @synth.srate).to_i
+
+      # Optional DC blocking filter (gentle, ~3.5Hz cutoff)
+      @dc_block = dc_block
+      @dc_blocker = DCBlocker.new(r: 0.9995) if dc_block
+
       raise ArgumentError, "#{synth.class} doesn't respond to ticks!" unless @synth.respond_to?(:ticks)
       init!( frameSize )
+
+      # Recalculate fade samples after sample rate is set
+      @fade_samples = (FADE_TIME * @synth.srate).to_i
       start
+    end
+
+    def dc_block=(val)
+      @dc_block = val
+      @dc_blocker = val ? DCBlocker.new(r: 0.9995) : nil
     end
 
     def muted=(val)
@@ -90,16 +129,26 @@ module DSP
     end
 
     def process input, output, framesPerBuffer, timeInfo, statusFlags, userData
+      # Generate samples - always work with plain Arrays for PortAudio
       if @muted && @fade_gain <= 0.0 && !@fading_in
-        out = Array.zeros( framesPerBuffer )
+        out = Array.new(framesPerBuffer, 0.0)
       else
-        out = @synth.ticks( framesPerBuffer )
-        out *= @gain unless @gain == 1.0
+        # Get samples and convert to Array immediately
+        raw = @synth.ticks(framesPerBuffer)
+        out = raw.respond_to?(:to_a) ? raw.to_a : Array(raw)
+
+        # Apply gain
+        out.map! { |s| s * @gain } unless @gain == 1.0
+
+        # Apply optional DC blocking
+        if @dc_blocker
+          out.map! { |s| @dc_blocker.tick(s) }
+        end
 
         # Apply fade-out/fade-in
         if @fading_out || @fading_in || @fade_gain < 1.0
           fade_delta = 1.0 / @fade_samples
-          out = out.to_a.map.with_index do |sample, i|
+          out.map! do |sample|
             if @fading_out && @fade_gain > 0.0
               @fade_gain -= fade_delta
               @fade_gain = 0.0 if @fade_gain < 0.0
@@ -110,30 +159,14 @@ module DSP
               @fading_in = false if @fade_gain >= 1.0
             end
             sample * @fade_gain
-          end.to_v
+          end
         end
       end
 
-      # Hard clip to prevent extreme values
-      clipped_this_frame = false
-      out = out.to_a.map do |s|
-        if s > MAX_SAMPLE
-          clipped_this_frame = true
-          MAX_SAMPLE
-        elsif s < -MAX_SAMPLE
-          clipped_this_frame = true
-          -MAX_SAMPLE
-        else
-          s
-        end
-      end
-
-      # Optional warning (only once per clip event)
-      if @clip_warning && clipped_this_frame && !@clipped
-        warn "AudioStream: clipping detected!"
-        @clipped = true
-      elsif !clipped_this_frame
-        @clipped = false
+      # Hard clip and sanitize - protect against NaN/Infinity
+      out.map! do |s|
+        s = 0.0 if s.nan? || s.infinite?
+        s.clamp(-MAX_SAMPLE, MAX_SAMPLE)
       end
 
       output.write_array_of_float out
@@ -151,13 +184,20 @@ module DSP
       output[:hostApiSpecificStreamInfo] = nil
       output[:channelCount]              = 1
       output[:sampleFormat]              = API::Float32
+
+      # Use the globally configured sample rate (set at module load time)
       open( input, output, @synth.srate.to_i, frameSize )
 
-      at_exit do
-        close
-        API.Pa_Terminate
+      # Register cleanup only once
+      unless @@exit_handler_registered
+        @@exit_handler_registered = true
+        at_exit do
+          API.Pa_Terminate rescue nil
+        end
       end
     end
+
+    @@exit_handler_registered = false
 
   end
 end

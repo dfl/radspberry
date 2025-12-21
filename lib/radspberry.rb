@@ -18,6 +18,11 @@ require_relative './radspberry/midi'
 require_relative './radspberry/dsp/math'
 require_relative './radspberry/dsp/base'
 require_relative './radspberry/dsp/speaker'
+
+# Initialize sample rate from audio device before creating DSP objects
+# This ensures filters and oscillators use the correct sample rate
+DSP.init_sample_rate_from_device!
+
 require_relative './radspberry/dsp/native_speaker'
 require_relative './radspberry/dsp/oscillator'
 require_relative './radspberry/dsp/filter'
