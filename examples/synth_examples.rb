@@ -169,25 +169,25 @@ Speaker.stop
 puts "   Done.\n\n"
 
 puts <<~SUMMARY
-  ╔════════════════════════════════════════════════════════════╗
-  ║  ALL EXAMPLES COMPLETE                                     ║
-  ║                                                            ║
-  ║  New API highlights:                                       ║
-  ║    :c4.freq          # => 261.63                          ║
-  ║    :c4.major         # => [:c4, :e4, :g4]                 ║
-  ║    :c4 + 7           # => :g4 (transpose)                 ║
-  ║                                                            ║
-  ║    Voice.acid(:a2)   # instant 303                        ║
-  ║    Voice.pad(:c3)    # lush pad                           ║
-  ║    Voice.pluck(:e4)  # plucky lead                        ║
-  ║                                                            ║
-  ║    Env.perc          # quick attack-decay                 ║
-  ║    Env.pad           # slow envelope                      ║
-  ║                                                            ║
-  ║    Speaker.play(v)   # start                              ║
-  ║    Speaker.stop      # stop                               ║
-  ║                                                            ║
-  ║    Clock.bpm = 140                                        ║
-  ║    sleep 1.beat                                           ║
-  ╚════════════════════════════════════════════════════════════╝
+  ╔═════════════════════════════════════════════════════╗
+  ║  ALL EXAMPLES COMPLETE                              ║
+  ║                                                     ║
+  ║  New API highlights:                                ║
+  ║    :c4.freq          # => 261.63                    ║
+  ║    :c4.major         # => [:c4, :e4, :g4]           ║
+  ║    :c4 + 7           # => :g4 (transpose)           ║
+  ║                                                     ║
+  ║    Voice.acid(:a2)   # instant 303                  ║
+  ║    Voice.pad(:c3)    # lush pad                     ║
+  ║    Voice.pluck(:e4)  # plucky lead                  ║
+  ║                                                     ║
+  ║    Env.perc          # quick attack-decay           ║
+  ║    Env.pad           # slow envelope                ║
+  ║                                                     ║
+  ║    Speaker.play(v)   # start                        ║
+  ║    Speaker.stop      # stop                         ║
+  ║                                                     ║
+  ║    Clock.bpm = 140                                  ║
+  ║    sleep 1.beat                                     ║
+  ╚═════════════════════════════════════════════════════╝
 SUMMARY
