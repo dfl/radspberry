@@ -24,37 +24,14 @@ module DSP
     @thread = nil
 
     def new(synth, opts = {})
-      new_synth = synth.is_a?(Class) ? synth.new : synth
-      raise ArgumentError, "#{new_synth.class} doesn't respond to ticks!" unless new_synth.respond_to?(:ticks)
-
-      new_gain = opts.fetch(:volume, 1.0)
-
-      # If stream is already running, just swap the synth (no click!)
-      if @running && defined?(NativeAudio) && NativeAudio.active?
-        # Fade out current sound
-        NativeAudio.fade_out
-        timeout = Time.now + 0.1
-        until NativeAudio.muted? || Time.now > timeout
-          sleep 0.002
-        end
-
-        # Swap synth and gain
-        @synth = new_synth
-        @gain = new_gain
-
-        # Clear buffer and fade back in
-        NativeAudio.clear
-        fade_in_samples
-
-        return self
-      end
-
-      # Fresh start - no stream running yet
+      # Always stop cleanly first
       stop if @running
 
-      @synth = new_synth
-      @gain = new_gain
+      @synth = synth.is_a?(Class) ? synth.new : synth
+      @gain = opts.fetch(:volume, 1.0)
       @muted = false
+
+      raise ArgumentError, "#{@synth.class} doesn't respond to ticks!" unless @synth.respond_to?(:ticks)
 
       # Start native audio
       NativeAudio.start(@synth.srate.to_i)
