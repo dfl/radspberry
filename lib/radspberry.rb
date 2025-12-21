@@ -1,5 +1,5 @@
 class Radspberry
-  VERSION = '0.2.0'
+  VERSION = '0.3.0'
 end
 
 require 'matrix'
@@ -29,4 +29,6 @@ require_relative './radspberry/dsp/filter'
 require_relative './radspberry/dsp/oversampling'
 require_relative './radspberry/dsp/super_saw'
 require_relative './radspberry/dsp/envelope'
+require_relative './radspberry/dsp/note'
+require_relative './radspberry/dsp/clock'
 require_relative './radspberry/dsp/refinements'
