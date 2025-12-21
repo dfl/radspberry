@@ -202,6 +202,14 @@ static VALUE rb_muted_p(VALUE self) {
     return muted ? Qtrue : Qfalse;
 }
 
+// Ruby: NativeAudio.unmute - reset fade state and unmute
+static VALUE rb_unmute(VALUE self) {
+    fading_out = 0;
+    fade_gain = 1.0f;
+    muted = 0;
+    return Qtrue;
+}
+
 void Init_radspberry_audio(void) {
     VALUE mNativeAudio = rb_define_module("NativeAudio");
 
@@ -215,4 +223,5 @@ void Init_radspberry_audio(void) {
     rb_define_singleton_method(mNativeAudio, "fade_out", rb_fade_out, 0);
     rb_define_singleton_method(mNativeAudio, "faded?", rb_faded_p, 0);
     rb_define_singleton_method(mNativeAudio, "muted?", rb_muted_p, 0);
+    rb_define_singleton_method(mNativeAudio, "unmute", rb_unmute, 0);
 }

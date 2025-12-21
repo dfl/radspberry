@@ -24,16 +24,37 @@ module DSP
     @thread = nil
 
     def new(synth, opts = {})
+      new_synth = synth.is_a?(Class) ? synth.new : synth
+      raise ArgumentError, "#{new_synth.class} doesn't respond to ticks!" unless new_synth.respond_to?(:ticks)
+
+      new_gain = opts.fetch(:volume, 1.0)
+
+      # If stream is already running, just swap the synth (no click!)
+      if @running && defined?(NativeAudio) && NativeAudio.active?
+        # Fade out current sound
+        NativeAudio.fade_out
+        timeout = Time.now + 0.1
+        until NativeAudio.muted? || Time.now > timeout
+          sleep 0.002
+        end
+
+        # Swap synth and gain
+        @synth = new_synth
+        @gain = new_gain
+
+        # Clear buffer and fade back in
+        NativeAudio.clear
+        fade_in_samples
+
+        return self
+      end
+
+      # Fresh start - no stream running yet
       stop if @running
 
-      # Brief pause to let audio hardware settle after stop
-      sleep 0.05 if defined?(NativeAudio)
-
-      @synth = synth.is_a?(Class) ? synth.new : synth
-      @gain = opts.fetch(:volume, 1.0)
+      @synth = new_synth
+      @gain = new_gain
       @muted = false
-
-      raise ArgumentError, "#{@synth.class} doesn't respond to ticks!" unless @synth.respond_to?(:ticks)
 
       # Start native audio
       NativeAudio.start(@synth.srate.to_i)
@@ -140,8 +161,11 @@ module DSP
       out = out.respond_to?(:to_a) ? out.to_a : out
 
       # Simple linear ramp 0→1
-      out.each_with_index.map { |s, i| s * (i.to_f / fade_samples) }
-        .tap { |samples| NativeAudio.push(samples) }
+      faded = out.each_with_index.map { |s, i| s * (i.to_f / fade_samples) }
+
+      # Unmute and push the fade-in samples
+      NativeAudio.unmute
+      NativeAudio.push(faded)
     end
 
     def producer_loop
