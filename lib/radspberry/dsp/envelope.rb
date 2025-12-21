@@ -73,7 +73,9 @@ module DSP
     def gate_off!
       if @state != IDLE
         @state = RELEASE
-        @release_base = (@sustain_level - @tco_decay) * (1.0 - @release_coef)
+        # release_base is already correctly calculated in recalc_coefficients!
+        # It should be -@tco_decay * (1.0 - @release_coef) to decay toward 0
+        # (targeting -TCO as overshoot below 0)
       end
     end
 
@@ -364,7 +366,10 @@ module DSP
     end
 
     def ticks(samples)
-      @source.ticks(samples) * @envelope.ticks(samples)
+      # Element-wise multiplication of source and envelope
+      src = @source.ticks(samples).to_a
+      env = @envelope.ticks(samples).to_a
+      src.zip(env).map { |s, e| s * e }.to_v
     end
 
     def trigger!
@@ -429,16 +434,24 @@ module DSP
   end
 
   # Step sequencer - cycles through a pattern
-  class StepSequencer < FiberGenerator
-    attr_accessor :pattern, :step_duration, :loop
+  # Uses state machine instead of Fiber for thread-safety with PortAudio callbacks
+  class StepSequencer < Generator
+    attr_accessor :pattern, :step_duration, :looping
 
-    def initialize(pattern: [60, 62, 64, 65], step_duration: 0.25, loop: true)
-      @pattern = pattern  # MIDI notes or frequencies
+    def initialize(pattern: [60, 62, 64, 65], step_duration: 0.25, looping: true)
+      @pattern = pattern
       @step_duration = step_duration
-      @loop = loop
+      @looping = looping
+      reset!
+    end
+
+    def reset!
       @current_step = 0
-      @current_note = pattern.first
-      super()
+      @current_note = @pattern.first
+      @sample_in_step = 0
+      @samples_per_step = (@step_duration * srate).to_i
+      @gate_samples = (@samples_per_step * 0.8).to_i
+      @done = false
     end
 
     def current_note
@@ -449,37 +462,33 @@ module DSP
       midi_to_freq(@current_note)
     end
 
-    # Returns gate value (1.0 during note, 0.0 between)
     def tick
-      result = @fiber.resume if @fiber&.alive?
-      @current_note = result[:note] if result.is_a?(Hash)
-      result.is_a?(Hash) ? result[:gate] : 0.0
-    end
+      return 0.0 if @done
 
-    protected
+      # Determine gate state
+      gate = @sample_in_step < @gate_samples ? 1.0 : 0.0
 
-    def create_fiber
-      Fiber.new do
-        loop do
-          @pattern.each_with_index do |note, idx|
-            @current_step = idx
-            @current_note = note
-            samples_per_step = (@step_duration * srate).to_i
-            gate_samples = (samples_per_step * 0.8).to_i  # 80% gate time
+      # Advance sample counter
+      @sample_in_step += 1
 
-            # Gate on
-            gate_samples.times { Fiber.yield({ note: note, gate: 1.0 }) }
+      # Move to next step if needed
+      if @sample_in_step >= @samples_per_step
+        @sample_in_step = 0
+        @current_step += 1
 
-            # Gate off (rest of step)
-            (samples_per_step - gate_samples).times { Fiber.yield({ note: note, gate: 0.0 }) }
+        if @current_step >= @pattern.size
+          if @looping
+            @current_step = 0
+          else
+            @done = true
+            return 0.0
           end
-
-          break unless @loop
         end
 
-        # Done
-        loop { Fiber.yield({ note: @current_note, gate: 0.0 }) }
+        @current_note = @pattern[@current_step]
       end
+
+      gate
     end
 
     private
@@ -490,7 +499,8 @@ module DSP
   end
 
   # Arpeggiator - cycles through held notes
-  class Arpeggiator < FiberGenerator
+  # Uses state machine instead of Fiber for thread-safety with PortAudio callbacks
+  class Arpeggiator < Generator
     MODES = [:up, :down, :up_down, :random]
 
     attr_accessor :notes, :step_duration, :octaves, :mode
@@ -500,8 +510,16 @@ module DSP
       @step_duration = step_duration
       @octaves = octaves
       @mode = mode
-      @current_note = notes.first
-      super()
+      reset!
+    end
+
+    def reset!
+      @arp_sequence = build_arp_sequence
+      @current_index = 0
+      @current_note = @arp_sequence.first || @notes.first
+      @sample_in_step = 0
+      @samples_per_step = (@step_duration * srate).to_i
+      @gate_samples = (@samples_per_step * 0.8).to_i
     end
 
     def note_on(note)
@@ -524,36 +542,36 @@ module DSP
     end
 
     def tick
-      result = @fiber.resume if @fiber&.alive?
-      @current_note = result[:note] if result.is_a?(Hash)
-      result.is_a?(Hash) ? result[:gate] : 0.0
-    end
+      return 0.0 if @notes.empty? || @arp_sequence.empty?
 
-    protected
+      # Determine gate state
+      gate = @sample_in_step < @gate_samples ? 1.0 : 0.0
 
-    def create_fiber
-      Fiber.new do
-        loop do
-          break if @notes.empty?
+      # Advance sample counter
+      @sample_in_step += 1
 
-          arp_notes = build_arp_sequence
-          arp_notes.each do |note|
-            @current_note = note
-            samples_per_step = (@step_duration * srate).to_i
-            gate_samples = (samples_per_step * 0.8).to_i
+      # Move to next note if needed
+      if @sample_in_step >= @samples_per_step
+        @sample_in_step = 0
+        @current_index += 1
 
-            gate_samples.times { Fiber.yield({ note: note, gate: 1.0 }) }
-            (samples_per_step - gate_samples).times { Fiber.yield({ note: note, gate: 0.0 }) }
-          end
+        if @current_index >= @arp_sequence.size
+          @current_index = 0
+          # Rebuild sequence for random mode
+          @arp_sequence = build_arp_sequence if @mode == :random
         end
 
-        loop { Fiber.yield({ note: @current_note, gate: 0.0 }) }
+        @current_note = @arp_sequence[@current_index]
       end
+
+      gate
     end
 
     private
 
     def build_arp_sequence
+      return [] if @notes.empty?
+
       # Expand across octaves
       expanded = []
       @octaves.times do |oct|
@@ -566,6 +584,7 @@ module DSP
       when :down
         expanded.reverse
       when :up_down
+        return expanded if expanded.size <= 2
         expanded + expanded.reverse[1..-2]
       when :random
         expanded.shuffle
@@ -591,7 +610,6 @@ module DSP
                    filter_base: 200, filter_mod: 4000)
       @osc = osc_class.respond_to?(:new) ? osc_class.new : osc_class
       @filter = filter_class.respond_to?(:new) ? filter_class.new(1000) : filter_class
-      @dc_blocker = DCBlocker.new
 
       # Analog-style envelopes
       @amp_env = AnalogEnvelope.new(
@@ -625,11 +643,10 @@ module DSP
       env_val = @filter_env.tick
       @filter.freq = @filter_base + env_val * @filter_mod
 
-      # Signal path: osc -> filter -> amp envelope -> DC blocker
+      # Signal path: osc -> filter -> amp envelope
       sample = @osc.tick
       sample = @filter.tick(sample)
-      sample = sample * @amp_env.tick
-      @dc_blocker.tick(sample)
+      sample * @amp_env.tick
     end
 
     def ticks(samples)
