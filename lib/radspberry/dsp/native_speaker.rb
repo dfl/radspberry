@@ -31,6 +31,8 @@ module DSP
       if @running && NativeAudio.active?
         @synth = new_synth
         @gain = opts.fetch(:volume, 1.0)
+        @muted = false
+        NativeAudio.unmute if defined?(NativeAudio)
         return self
       end
 

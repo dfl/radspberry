@@ -19,7 +19,7 @@ puts <<~BANNER
 
 BANNER
 
-Clock.bpm = 120
+# Clock.bpm = 120
 
 # Define some re-usable synths first
 # =================================
@@ -53,7 +53,7 @@ puts "   Playing: 'c4 e4 g4 . a3'"
 puts
 
 # Play a pattern with a specific duration per step
-Synth[:basic_saw].play_pattern("c4 e4 g4 . a3", duration: 0.2.beats)
+Synth[:basic_saw].play_pattern("c4 e4 g4 . a3", duration: 0.2.beats).wait
 
 puts "   Done.\n\n"
 

@@ -40,4 +40,60 @@ module DSP
       e == :r || e == :rest || e.nil?
     end
   end
+
+  class PatternSequencer < Generator
+    attr_reader :synth, :pattern, :step_duration
+
+    def initialize(synth, pattern, duration: 0.25)
+      @synth = synth
+      @pattern = Pattern[pattern].elements
+      @step_duration = duration
+      reset!
+    end
+
+    def reset!
+      @current_step = 0
+      @samples_per_step = (@step_duration * srate).to_i
+      @sample_in_step = 0
+      @done = false
+    end
+
+    def tick
+      return 0.0 if @done
+
+      if @sample_in_step == 0
+        note = @pattern[@current_step]
+        if note != :r
+          @synth.set(freq: note)
+          @synth.broadcast_method(:trigger!)
+        end
+      end
+
+      out = @synth.tick
+      @sample_in_step += 1
+
+      if @sample_in_step >= @samples_per_step
+        @sample_in_step = 0
+        @current_step += 1
+        if @current_step >= @pattern.size
+          @done = true
+        end
+      end
+
+      out
+    end
+
+    def ticks(samples)
+      samples.times.map { tick }.to_v
+    end
+
+    def alive?
+      !@done
+    end
+
+    def wait
+      sleep 0.1 while alive?
+      self
+    end
+  end
 end

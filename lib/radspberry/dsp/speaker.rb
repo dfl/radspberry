@@ -71,6 +71,7 @@ module DSP
     def stop
       case @@backend
       when :native
+        NativeSpeaker.mute
         NativeSpeaker.stop
       when :callback
         @@stream&.stop rescue nil
