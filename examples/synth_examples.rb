@@ -220,7 +220,44 @@ v.stop
 sleep 0.3
 Speaker.stop
 
-puts "   Done.\n\n"
+#──────────────────────────────────────────────────────────────
+# Example 10: DualRPM Hard Sync Sweep
+#──────────────────────────────────────────────────────────────
+
+puts "10. DualRPM Hard Sync Sweep"
+puts "    Sweeping sync_ratio from 1.0 to 8.0"
+puts
+
+# Use the new sync voice preset
+v = Voice.sync
+Speaker.play(v, volume: 0.35)
+
+# Tweak voice for a cleaner sync sound
+v.osc.window_alpha = 4.0
+v.osc.beta = 0.5
+v.cutoff = 8000
+v.res = 0.2
+
+# Play a low note and sweep the ratio
+v.play(:e2)
+
+steps = 40
+duration = 2.0
+ratio_start = 1.0
+ratio_end = 8.0
+
+steps.times do |i|
+  # Classic hard sync sweep
+  v.osc.sync_ratio = ratio_start + (ratio_end - ratio_start) * (i.to_f / steps)
+  sleep duration / steps
+end
+
+sleep 0.5
+v.stop
+sleep 0.5
+Speaker.stop
+
+puts "    Done.\n\n"
 
 puts <<~SUMMARY
   ╔═════════════════════════════════════════════════════╗
@@ -239,6 +276,7 @@ puts <<~SUMMARY
   ║    Voice.pad(:c3)        # lush pad                 ║
   ║    Voice.pluck(:e4)      # plucky sound             ║
   ║    Voice.lead(:g4)       # mono lead                ║
+  ║    Voice.sync(:e2)       # hard sync sweep          ║
   ║                                                     ║
   ║  Voice Parameters:                                  ║
   ║    v.cutoff = 2000       # filter frequency         ║

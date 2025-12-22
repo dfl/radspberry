@@ -70,6 +70,19 @@ module DSP
       v
     end
 
+    def self.sync(note = nil)
+      v = new(
+        osc: DualRPMOscillator,
+        filter: ButterLP,
+        amp_env: Env.adsr(attack: 0.005, decay: 0.3, sustain: 0.5, release: 0.2),
+        filter_env: Env.perc(attack: 0.01, decay: 0.5), # used for ratio sweep
+        filter_base: 1000,
+        filter_mod: 8000
+      )
+      v.play(note) if note
+      v
+    end
+
     def freq=(f)
       @freq = DSP.to_freq(f)
       @osc.freq = @freq if @osc.respond_to?(:freq=)

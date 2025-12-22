@@ -27,11 +27,18 @@ module DSP
 
     def tick(*args)
       apply_modulations
+      # Support both Generator (0 args) and Processor (1 arg)
       __getobj__.tick(*args)
     end
 
-    def ticks(inputs)
-      inputs.map { |s| tick(s) }
+    def ticks(inputs_or_samples)
+      if inputs_or_samples.is_a?(Numeric)
+        # Handle Generator behavior
+        inputs_or_samples.times.map { tick }.to_v
+      else
+        # Handle Processor behavior
+        inputs_or_samples.map { |s| tick(s) }
+      end
     end
 
     def modulate(param, source, range: nil, &block)
@@ -73,10 +80,12 @@ module DSP
     end
   end
 
-  # Add modulate method to Processor - returns wrapped version
-  class Processor
-    def modulate(param, source, range: nil, &block)
-      ModulatedProcessor.new(self).modulate(param, source, range: range, &block)
+  # Add modulate method to both Generator and Processor
+  [Generator, Processor].each do |klass|
+    klass.class_eval do
+      def modulate(param, source, range: nil, &block)
+        ModulatedProcessor.new(self).modulate(param, source, range: range, &block)
+      end
     end
   end
 end
