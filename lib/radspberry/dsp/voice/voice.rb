@@ -1,7 +1,8 @@
-# Voice - combines oscillator + filter + amp envelope
+require 'forwardable'
 
 module DSP
   class Voice < Generator
+    extend Forwardable
     attr_accessor :osc, :filter, :amp_env, :filter_env, :filter_base, :filter_mod, :osc_base, :osc_mod, :osc_mod_target
     alias_method :mod_env, :filter_env
     alias_method :sync_env, :filter_env
@@ -9,11 +10,11 @@ module DSP
     def initialize(osc: SuperSaw, filter: ButterLP, amp_env: nil, filter_env: nil,
                    filter_base: 200, filter_mod: 4000,
                    osc_base: 0.0, osc_mod: 0.0, osc_mod_target: nil, &block)
-      @osc = osc.is_a?(Class) ? osc.new : osc
-      @filter = filter.is_a?(Class) ? filter.new(1000) : filter
-      @amp_env = amp_env || Env.adsr
-      @filter_env = filter_env || Env.perc
-      @filter_base = filter_base
+      @osc = (osc.is_a?(Class) ? osc.new : osc)
+      @filter = (filter.is_a?(Class) ? filter.new(1000) : filter)
+      @amp_env = (amp_env.is_a?(Class) ? amp_env.new : (amp_env || Env.adsr))
+      @filter_env = (filter_env.is_a?(Class) ? filter_env.new : (filter_env || Env.perc))
+      @filter_base = DSP.to_freq(filter_base)
       @filter_mod = filter_mod
       @osc_base = osc_base
       @osc_mod = osc_mod
@@ -100,8 +101,12 @@ module DSP
       @freq
     end
 
-    def play(note)
+    def play(note, duration = nil)
       note_on(note)
+      if duration
+        sleep duration
+        stop
+      end
     end
 
     def stop
@@ -127,13 +132,7 @@ module DSP
       @filter_base = DSP.to_freq(f)
     end
 
-    def resonance
-      @filter.q
-    end
-
-    def resonance=(r)
-      @filter.q = r
-    end
+    def_delegators :@filter, :resonance, :resonance=
     alias_method :res, :resonance
     alias_method :res=, :resonance=
 

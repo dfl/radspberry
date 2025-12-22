@@ -5,8 +5,8 @@ module DSP
 
     # Parameters
     param_accessor :sync_ratio,      :default => 2.0,   :range => (0.1..20.0)
-    param_accessor :window_alpha,    :default => 3.0,   :range => (0.0..10.0), :after_set => proc{generate_window}
-    param_accessor :beta,            :default => 1.5,   :range => (0.0..2.0),  :after_set => proc{update_beta}
+    param_accessor :window_alpha,    :default => 1.0,   :range => (0.0..10.0), :after_set => proc{generate_window}
+    param_accessor :beta,            :default => 1.5,   :range => (0.0..5.0),  :after_set => proc{update_beta}
     param_accessor :morph,           :default => 0.0,   :range => (0.0..1.0),  :after_set => proc{update_morph}
     param_accessor :duty,            :default => 0.5,   :range => (0.01..0.99)
     
@@ -47,7 +47,7 @@ module DSP
     def initialize(freq = DEFAULT_FREQ)
       @fm_ratio = 1.0
       @sync_ratio = 2.0
-      @window_alpha = 3.0
+      @window_alpha = 1.0
       @beta = 1.5
       @morph = 0.0
       @duty = 0.5

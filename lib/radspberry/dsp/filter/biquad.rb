@@ -74,7 +74,7 @@ module DSP
     attr_reader :freq
 
     def freq=(arg)
-      @freq = arg
+      @freq = DSP.to_freq(arg)
       @w0 = TWO_PI * @freq * inv_srate
       recalc
     end

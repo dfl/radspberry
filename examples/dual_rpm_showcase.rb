@@ -21,16 +21,16 @@ def showcase(title)
 end
 
 # 1. Classic Hard Sync Sweep
-showcase "Classic Hard Sync Sweep (Vocal Formants)" do
+showcase "Classic Hard Sync Sweep" do
   v = Voice.new(osc: DualRPMOscillator)
-  v.osc.window_alpha = 3.0 # High alpha for smooth, vocal quality
-  v.osc.beta = 1.5
+  v.osc.window_alpha = 0.5 
+  v.osc.beta = 5.0
   
   # Configure Filter ADSR
   v.filter_env = Env.adsr(attack: 1.0, decay: 4.0, sustain: 0.2)
-  v.cutoff = 200
+  v.cutoff = 1000
   v.filter_mod = 4000
-  v.res = 0.4
+  v.res = 0.8
 
   # Use an LFO for a continuous smooth sweep
   lfo = Phasor.new(0.3)
@@ -38,7 +38,7 @@ showcase "Classic Hard Sync Sweep (Vocal Formants)" do
   
   Speaker.play(v, volume: 0.4)
   v.play(:e2)
-  sleep 6.0
+  sleep 8.0
   v.stop
   
   Speaker.stop

@@ -404,11 +404,15 @@ module DSP
   end
 
   class Oscillator < Generator
-    attr_accessor :freq
+    attr_reader :freq
     DEFAULT_FREQ = MIDI::A / 2
 
     def initialize freq=DEFAULT_FREQ
       self.freq = freq
+    end
+
+    def freq=(val)
+      @freq = DSP.to_freq(val)
     end
   end
 
@@ -429,7 +433,7 @@ module DSP
     end
 
     def freq= arg
-      @freq = arg
+      @freq = DSP.to_freq(arg)
       @inc  = @freq * inv_srate
     end
   end

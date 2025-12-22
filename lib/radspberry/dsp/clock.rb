@@ -26,6 +26,8 @@ module TimingExtensions
   def bars  = bar
   def ms    = self / 1000.0
   def s     = self.to_f
+  def second = s
+  def seconds = s
 
   alias_method :b, :beat
 end

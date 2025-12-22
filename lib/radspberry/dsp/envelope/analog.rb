@@ -9,17 +9,22 @@ module DSP
     SUSTAIN = 3
     RELEASE = 4
 
-    attr_accessor :attack_time, :decay_time, :sustain_level, :release_time
-    attr_reader :state, :output
+    attr_reader :state, :output, :attack_time, :decay_time, :sustain_level, :release_time
 
-    alias_method :attack,   :attack_time
-    alias_method :attack=,  :attack_time=
-    alias_method :decay,    :decay_time
-    alias_method :decay=,   :decay_time=
-    alias_method :sustain,  :sustain_level
-    alias_method :sustain=, :sustain_level=
-    alias_method :release,  :release_time
-    alias_method :release=, :release_time=
+    def attack=(t); @attack_time = t; recalc_coefficients!; end
+    def decay=(t); @decay_time = t; recalc_coefficients!; end
+    def sustain=(l); @sustain_level = l; recalc_coefficients!; end
+    def release=(t); @release_time = t; recalc_coefficients!; end
+
+    alias_method :attack_time=, :attack=
+    alias_method :decay_time=, :decay=
+    alias_method :sustain_level=, :sustain=
+    alias_method :release_time=, :release=
+
+    alias_method :attack, :attack_time
+    alias_method :decay, :decay_time
+    alias_method :sustain, :sustain_level
+    alias_method :release, :release_time
 
     # TCO = Target Coefficient Overshoot
     DEFAULT_TCO_ATTACK = 0.3
@@ -47,6 +52,10 @@ module DSP
 
     def gate_off!
       @state = RELEASE if @state != IDLE
+    end
+
+    def gate=(val)
+      val ? gate_on! : gate_off!
     end
 
     def trigger!
