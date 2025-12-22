@@ -5,6 +5,10 @@ module DSP
 
     # Parameters
     param_accessor :sync_ratio,      :default => 2.0,   :range => (0.1..20.0)
+    # window_alpha: Controls the shape of the Kaiser window used to crossfade slave oscillators.
+    #   - alpha > 0: Shaped Kaiser window (bell curve). Higher alpha = narrower window, smoother sound, less aliasing.
+    #   - alpha = 0: Triangular window (linear crossfade). Brightest sound, most "transparent" windowing.
+    # Note: Windowing is ALWAYS active to suppress hard sync discontinuities.
     param_accessor :window_alpha,    :default => 1.0,   :range => (0.0..10.0), :after_set => proc{generate_window}
     param_accessor :beta,            :default => 1.5,   :range => (0.0..5.0),  :after_set => proc{update_beta}
     param_accessor :morph,           :default => 0.0,   :range => (0.0..1.0),  :after_set => proc{update_morph}
