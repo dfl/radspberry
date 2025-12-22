@@ -48,23 +48,7 @@ end
 # Example 1: Note symbols and simple synth
 #──────────────────────────────────────────────────────────────
 
-puts "1. Note Symbols & Synth Usage"
-puts "   :a3.freq = #{:a3.freq.round(2)} Hz"
-puts
-
-# Play a named synth for a duration
-Synth[:basic_saw, freq: :c4].play(0.5)
-sleep 0.2
-Synth[:basic_saw, freq: :e4].play(0.5)
-sleep 0.2
-Synth[:basic_saw, freq: :g4].play(0.2)
-sleep 0.2
-
-#──────────────────────────────────────────────────────────────
-# Example 2: Pattern Notation (Strudel/SC style)
-#──────────────────────────────────────────────────────────────
-
-puts "2. Pattern Notation"
+puts "1. Pattern Notation"
 puts "   Playing: 'c4 e4 g4 . a3'"
 puts
 
@@ -83,11 +67,11 @@ puts "2. Acid Bassline (Synth style)"
 puts "   Using simple sequence"
 puts
 
-pattern = [:a2, :c3, :a2, :e3, :a2, :c3, :a3, :e3]
+pattern = %i[ a2 c3 a2 e3 a2 c3 a3 e3 ]
 
 seq = SequencedSynth.new(
   voice: Voice.acid,
-  sequencer: StepSequencer.new(pattern: pattern, step_duration: 0.15)
+  sequencer: StepSequencer.new(pattern:, step_duration: 0.15)
 )
 
 Speaker.play(seq, volume: 0.4)
