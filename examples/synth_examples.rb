@@ -189,14 +189,14 @@ puts "   Done.\n\n"
 
 puts "8. Modulation DSL"
 puts "   Filter cutoff modulated by LFO"
-puts "   LFO rate ramping from 1Hz to 30Hz"
+puts "   LFO rate ramping exponentially from 1Hz to 40Hz"
 puts
 
 # Create a noise source
 noise = Noise.new
 
-# Create a ramp for LFO rate modulation
-lfo_rate_mod = Env.line(1, 40, 3.seconds)
+# Create an exponential ramp for LFO rate modulation
+lfo_rate_mod = Env.linexp(1, 40, 3.seconds)
 
 # Create an LFO whose rate is modulated by the ramp
 lfo = Phasor.new(1).modulate(:freq, lfo_rate_mod)

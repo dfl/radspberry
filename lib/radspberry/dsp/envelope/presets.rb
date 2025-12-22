@@ -35,5 +35,9 @@ module DSP
     def line(start_val, finish_val, duration)
       Line.new(start_val, finish_val, duration)
     end
+
+    def linexp(start_val, finish_val, duration)
+      ExponentialLine.new(start_val, finish_val, duration)
+    end
   end
 end
