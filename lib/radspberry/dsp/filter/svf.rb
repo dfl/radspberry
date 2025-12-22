@@ -21,7 +21,7 @@ module DSP
     end
 
     def freq=(f)
-      @freq = DSP.to_freq(f.to_f)
+      @freq = DSP.to_freq(f)
       recalc
     end
 
@@ -94,7 +94,7 @@ module DSP
     end
 
     def freq=(f, update: true)
-      @freq = DSP.to_freq(f.to_f).clamp(20.0, srate * 0.49)
+      @freq = DSP.to_freq(f).clamp(20.0, srate * 0.49)
       recalc if update
     end
 

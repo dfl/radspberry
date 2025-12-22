@@ -463,7 +463,7 @@ module DSP
     end
 
     def freq=(val)
-      @freq = DSP.to_freq(val.to_f)
+      @freq = DSP.to_freq(val)
     end
 
     def srate= rate
@@ -489,7 +489,7 @@ module DSP
     end
 
     def freq= arg
-      @freq = DSP.to_freq(arg.to_f)
+      @freq = DSP.to_freq(arg)
       @inc  = @freq * inv_srate
     end
   end

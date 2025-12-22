@@ -27,7 +27,6 @@ Clock.bpm = 120
 
 puts "1. Note Symbols & Envelope Presets"
 puts "   :a3.freq = #{:a3.freq.round(2)} Hz"
-puts "   :c4.major = #{:c4.major.inspect}"
 puts
 
 voice = Voice.new(
@@ -52,7 +51,7 @@ puts "2. Acid Bassline (Voice.acid preset)"
 puts "   Using note symbols for pattern"
 puts
 
-pattern = [:a2, :c3, :a2, :e3, :a2, :c3, :a3, :e3].map(&:midi)
+pattern = [:a2, :c3, :a2, :e3, :a2, :c3, :a3, :e3]
 
 seq = SequencedSynth.new(
   voice: Voice.acid,
@@ -73,7 +72,7 @@ puts "3. Arpeggiator with :c4.major chord"
 puts
 
 arp = ArpSynth.new(
-  notes: :c4.major.map(&:midi),
+  notes: :c4.major,
   step_duration: 0.1,
   mode: :up,
   octaves: 2
@@ -97,7 +96,7 @@ puts "4. Arpeggiator - :a3.minor, Up/Down mode"
 puts
 
 arp2 = ArpSynth.new(
-  notes: :a3.minor.map(&:midi),
+  notes: :a3.minor,
   step_duration: 0.08,
   mode: :up_down,
   octaves: 2
@@ -161,9 +160,11 @@ puts
 lead = Voice.lead
 Speaker.play(lead, volume: 0.3)
 
-[:c4, :d4, :e4, :f4].each do |note|
-  lead.play(note)
-  sleep 0.5.beats
+2.times do 
+  [:c4, :d4, :e4, :f4].each do |note|
+    lead.play(note)
+    sleep 0.5.beats
+  end
 end
 
 Speaker.stop
@@ -184,7 +185,7 @@ lfo = Phasor.new(3)  # 3Hz LFO
 # Modulate filter frequency with range
 filter = ButterLP.new(1000)
            .modulate(:freq, lfo, range: 200..3000)
-
+# TODO: sweep LFO rate with Env
 # Build the chain (noise >> modulated filter)
 chain = noise >> filter
 
@@ -233,17 +234,17 @@ v = Voice.sync
 Speaker.play(v, volume: 0.35)
 
 # Tweak voice for a cleaner sync sound
-v.osc.window_alpha = 4.0
+v.osc.window_alpha = 2.0
 v.osc.beta = 0.5
 v.cutoff = 8000
-v.res = 0.2
+v.res = 0.5
 
 # It's easily configurable! Let's make the sweep even slower:
 v.sync_env.decay = 5.0
 
 # Play a low note/gate - the envelope now handles the ratio sweep automatically
 v.play(:c2)
-sleep 5.5
+sleep 3.5
 
 sleep 0.5
 v.stop

@@ -5,7 +5,7 @@ include DSP
 puts "Checking Frequency Normalization..."
 puts "440 Hz: #{DSP.to_freq(440)}"
 puts ":a4 note: #{DSP.to_freq(:a4)}"
-puts "69 MIDI: #{DSP.to_freq(69)}"
+puts "69 MIDI: #{DSP.to_freq(midi: 69)}"
 
 # 2. Timing Aliases
 puts "\nChecking Timing Aliases..."
