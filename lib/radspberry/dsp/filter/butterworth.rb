@@ -1,11 +1,21 @@
 # Butterworth filter family
 
 module DSP
-  class ButterHP < Biquad
+  class Butterworth < Biquad
+    attr_reader :resonance
+    MAX_Q = 25.0
+
     def initialize(f = 100, q: nil)
       super([1.0, 0, 0], [1.0, 0, 0], interpolate: true)
       @inv_q = q ? 1.0 / q : SQRT2
       self.freq = f
+    end
+
+    def resonance= r  # 0 - 1
+      @resonance = r
+      # Map 0..1 to SQRT2_2..MAX_Q exponentially
+      target_q = SQRT2_2 * (MAX_Q / SQRT2_2) ** @resonance
+      self.q = target_q
     end
 
     def q
@@ -16,7 +26,10 @@ module DSP
       @inv_q = 1.0 / arg
       recalc
     end
+  end
 
+
+  class ButterHP < Butterworth
     def recalc
       temp = 0.5 * @inv_q * sin(@w0)
       beta = 0.5 * (1.0 - temp) / (1.0 + temp)
@@ -36,7 +49,7 @@ module DSP
   end
 
 
-  class ButterLP < ButterHP
+  class ButterLP < Butterworth
     def recalc
       k = tan(PI * @freq * inv_srate)
       norm = 1.0 / (1.0 + k * @inv_q + k * k)
@@ -53,7 +66,7 @@ module DSP
   end
 
 
-  class ButterBP < ButterHP
+  class ButterBP < Butterworth
     def recalc
       k = tan(PI * @freq * inv_srate)
       norm = 1.0 / (1.0 + k * @inv_q + k * k)
@@ -70,7 +83,7 @@ module DSP
   end
 
 
-  class ButterNotch < ButterHP
+  class ButterNotch < Butterworth
     def recalc
       k = tan(PI * @freq * inv_srate)
       norm = 1.0 / (1.0 + k * @inv_q + k * k)
@@ -87,7 +100,7 @@ module DSP
   end
 
 
-  class ButterPeak < ButterHP
+  class ButterPeak < Butterworth
     param_accessor :gain, :default => 0.0, :after_set => Proc.new { recalc }
 
     def initialize(f = 1000, q: nil, gain: 0.0)
@@ -122,7 +135,7 @@ module DSP
   end
 
 
-  class ButterLowShelf < ButterHP
+  class ButterLowShelf < Butterworth
     param_accessor :gain, :default => 0.0, :after_set => Proc.new { recalc }
 
     def initialize(f = 1000, q: nil, gain: 0.0)
@@ -157,7 +170,7 @@ module DSP
   end
 
 
-  class ButterHighShelf < ButterHP
+  class ButterHighShelf < Butterworth
     param_accessor :gain, :default => 0.0, :after_set => Proc.new { recalc }
 
     def initialize(f = 1000, q: nil, gain: 0.0)
