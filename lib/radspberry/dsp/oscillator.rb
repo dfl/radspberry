@@ -48,17 +48,20 @@ module DSP
     include DSP::Math
     param_accessor :beta, :range => (0..2), :default => 1.5
 
+    RPM_CUTOFF = 5000.0  # Fixed cutoff for sample-rate independence
+
     def initialize( freq = DEFAULT_FREQ, phase=0 )
       self.beta= self.beta  # hack to init default
+      @alpha = 1.0 - ::Math.exp(-TWO_PI * RPM_CUTOFF * inv_srate)
       super
     end
 
     def clear!
       @state = @last_out = 0
     end
-  
+
     def tick
-      @state = 0.5*(@state + @last_out) # one-pole averager
+      @state += @alpha * (@last_out - @state)  # one-pole averager (5kHz cutoff)
       @last_out = sin( TWO_PI * tock + @beta * @state )
     end
   end
@@ -69,7 +72,7 @@ module DSP
     end
 
     def tick
-      @state = 0.5*(@state + @last_out*@last_out) # one-pole averager, squared
+      @state += @alpha * (@last_out * @last_out - @state)  # one-pole averager, squared
       @last_out = sin( TWO_PI * tock - @beta * @state )
     end
   end

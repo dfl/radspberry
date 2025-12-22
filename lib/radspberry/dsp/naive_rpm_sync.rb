@@ -10,6 +10,8 @@ module DSP
   class NaiveRpmSync < Oscillator
     include DSP::Math
 
+    RPM_CUTOFF = 5000.0  # Fixed cutoff for sample-rate independence
+
     param_accessor :sync_ratio, :default => 2.0,  :range => (0.1..32.0)
     param_accessor :index,      :default => 1.0,  :range => (0.0..10.0)  # FM index for RPM
     param_accessor :exponent,   :default => 1.5,  :range => (0.0..4.0)   # RPM beta/exponent
@@ -18,6 +20,7 @@ module DSP
       @sync_ratio = 2.0
       @index = 1.0
       @exponent = 1.5
+      @alpha = 1.0 - ::Math.exp(-TWO_PI * RPM_CUTOFF * inv_srate)
       super freq
       clear!
     end
@@ -38,8 +41,8 @@ module DSP
       slave_phase = (@master_phase * @sync_ratio) % 1.0
 
       # 2. RPM oscillator with the wrapped phase
-      # State update: one-pole averager of feedback
-      @rpm_state = 0.5 * (@rpm_state + @rpm_last_out)
+      # State update: one-pole averager (5kHz cutoff)
+      @rpm_state += @alpha * (@rpm_last_out - @rpm_state)
 
       # Output: sin(2π × phase + beta × state)
       @rpm_last_out = sin(TWO_PI * slave_phase + @exponent * @rpm_state)
@@ -58,6 +61,8 @@ module DSP
   class NaiveRpmSyncIndexed < Oscillator
     include DSP::Math
 
+    RPM_CUTOFF = 5000.0  # Fixed cutoff for sample-rate independence
+
     param_accessor :sync_ratio, :default => 2.0,  :range => (0.1..32.0)
     param_accessor :index,      :default => 1.0,  :range => (0.0..10.0)
     param_accessor :exponent,   :default => 1.5,  :range => (0.0..4.0)
@@ -66,6 +71,7 @@ module DSP
       @sync_ratio = 2.0
       @index = 1.0
       @exponent = 1.5
+      @alpha = 1.0 - ::Math.exp(-TWO_PI * RPM_CUTOFF * inv_srate)
       super freq
       clear!
     end
@@ -88,8 +94,8 @@ module DSP
       # 1. Calculate slave phase
       slave_phase = (@master_phase * eff_ratio) % 1.0
 
-      # 2. RPM with index-scaled feedback
-      @rpm_state = 0.5 * (@rpm_state + @rpm_last_out)
+      # 2. RPM with index-scaled feedback (5kHz cutoff)
+      @rpm_state += @alpha * (@rpm_last_out - @rpm_state)
       eff_beta = @exponent * @index
       @rpm_last_out = sin(TWO_PI * slave_phase + eff_beta * @rpm_state)
 
@@ -107,6 +113,8 @@ module DSP
   class NaiveRpmSyncMorph < Oscillator
     include DSP::Math
 
+    RPM_CUTOFF = 5000.0  # Fixed cutoff for sample-rate independence
+
     param_accessor :sync_ratio, :default => 2.0,  :range => (0.1..32.0)
     param_accessor :beta,       :default => 1.5,  :range => (0.0..2.0)
     param_accessor :morph,      :default => 0.0,  :range => (0.0..1.0)  # 0=saw, 1=square-ish
@@ -115,6 +123,7 @@ module DSP
       @sync_ratio = 2.0
       @beta = 1.5
       @morph = 0.0
+      @alpha = 1.0 - ::Math.exp(-TWO_PI * RPM_CUTOFF * inv_srate)
       super freq
       clear!
     end
@@ -137,7 +146,7 @@ module DSP
       # 2. Morphable RPM
       # Feedback signal morphs between linear and squared
       fb_signal = (@rpm_last_out * @rpm_last_out - @rpm_last_out) * @morph + @rpm_last_out
-      @rpm_state = 0.5 * (@rpm_state + fb_signal)
+      @rpm_state += @alpha * (fb_signal - @rpm_state)  # one-pole averager (5kHz cutoff)
 
       # Beta scales inversely with morph for balanced timbre
       eff_beta = @beta * (1.0 - 2.0 * @morph)

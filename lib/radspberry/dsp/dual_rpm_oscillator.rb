@@ -22,9 +22,12 @@ module DSP
       include DSP::Math
       attr_accessor :beta, :state, :last_out, :morph
 
+      RPM_CUTOFF = 5000.0  # Fixed cutoff for sample-rate independence
+
       def initialize(beta = 1.5, morph = 0.0)
         @beta = beta
         @morph = morph
+        @alpha = 1.0 - ::Math.exp(-DSP::TWO_PI * RPM_CUTOFF * DSP::Base.inv_srate)
         clear!
       end
 
@@ -34,8 +37,8 @@ module DSP
 
       def process(phase)
         fb_signal = (@last_out * @last_out - @last_out) * @morph + @last_out
-        @state = 0.5 * (@state + fb_signal)
-        
+        @state += @alpha * (fb_signal - @state)  # one-pole averager (5kHz cutoff)
+
         eff_beta = @beta * (1.0 - 2.0 * @morph)
         @last_out = sin(DSP::TWO_PI * phase + eff_beta * @state)
       end
