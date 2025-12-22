@@ -2,8 +2,7 @@
 
 module DSP
   class Voice < Generator
-    attr_reader :osc, :filter, :amp_env, :filter_env
-    attr_accessor :filter_base, :filter_mod, :osc_base, :osc_mod, :osc_mod_target
+    attr_accessor :osc, :filter, :amp_env, :filter_env, :filter_base, :filter_mod, :osc_base, :osc_mod, :osc_mod_target
     alias_method :mod_env, :filter_env
     alias_method :sync_env, :filter_env
 
