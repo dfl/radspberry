@@ -3,7 +3,7 @@
 # If aliasing: high tones move DOWN as fundamental moves UP
 # If clean: only the fundamental pitch changes
 
-require_relative '../lib/radspberry'
+require_relative '../../lib/radspberry'
 include DSP
 
 puts "=== LFO Frequency Modulation Aliasing Test ==="

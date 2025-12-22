@@ -1,6 +1,6 @@
 require 'minitest/autorun'
 
-require_relative "../lib/radspberry"
+require_relative "../../lib/radspberry"
 
 class TestRadspberry < Minitest::Test
   include DSP

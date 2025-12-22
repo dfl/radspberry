@@ -12,11 +12,13 @@ require 'active_support/core_ext/hash/reverse_merge'
 require 'portmidi'
 require 'wavefile'
 
+require_relative './radspberry/dsp/note'
 require_relative './radspberry/ruby_extensions'
 require_relative './radspberry/midi'
 
 # Core DSP
 require_relative './radspberry/dsp/math'
+require_relative './radspberry/dsp/conversions'
 require_relative './radspberry/dsp/base'
 require_relative './radspberry/dsp/speaker'
 
@@ -38,7 +40,7 @@ require_relative './radspberry/dsp/modulation'
 require_relative './radspberry/dsp/curvable'
 require_relative './radspberry/dsp/oversampling'
 require_relative './radspberry/dsp/fft'
-require_relative './radspberry/dsp/note'
+
 require_relative './radspberry/dsp/clock'
 require_relative './radspberry/dsp/refinements'
 

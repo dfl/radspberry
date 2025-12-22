@@ -88,3 +88,56 @@ module ModuleExtensions
 end
 
 Module.send :include, ModuleExtensions
+
+
+# Moved from note.rb
+class Symbol
+  def note?
+    to_s.match?(/^[a-g][sb]?-?\d$/i)
+  end
+
+  def midi
+    note? ? Note.midi(self) : super
+  end
+
+  def freq
+    note? ? Note.freq(self) : super
+  end
+
+  def up(n = 12)
+    note? ? Note.transpose(self, n) : super
+  end
+
+  def down(n = 12)
+    note? ? Note.transpose(self, -n) : super
+  end
+
+  # Generate chord methods (only if Note::CHORDS is defined)
+  if defined?(Note::CHORDS)
+    Note::CHORDS.each_key do |chord_type|
+      define_method(chord_type) do
+        note? ? Note.chord(self, chord_type) : super()
+      end
+    end
+  end
+
+  # Scale helper: :c3.scale(:dorian) or :c3.scale(:blues, octaves: 2)
+  def scale(type, octaves: 1)
+    note? ? Note.scale(self, type, octaves: octaves) : super()
+  end
+
+  # Transpose operators (Symbol doesn't have these by default)
+  def +(other)
+    return Note.transpose(self, other) if note?
+    super
+  rescue NoMethodError
+    raise NoMethodError, "undefined method `+' for #{self.inspect}"
+  end
+
+  def -(other)
+    return Note.transpose(self, -other) if note?
+    super
+  rescue NoMethodError
+    raise NoMethodError, "undefined method `-' for #{self.inspect}"
+  end
+end

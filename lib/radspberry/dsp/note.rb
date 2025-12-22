@@ -59,8 +59,13 @@ module Note
     parse(sym)
   end
 
+  # Primary logic for MIDI -> Frequency conversion
+  def midi_to_freq(midi)
+    A4_FREQ * (2.0 ** ((midi - A4_MIDI) / 12.0))
+  end
+
   def freq(sym)
-    A4_FREQ * (2.0 ** ((midi(sym) - A4_MIDI) / 12.0))
+    midi_to_freq(midi(sym))
   end
 
   def midi_to_sym(m)
@@ -85,77 +90,5 @@ module Note
 
   def transpose(sym, semitones)
     midi_to_sym(midi(sym) + semitones)
-  end
-end
-
-
-class Symbol
-  def note?
-    to_s.match?(/^[a-g][sb]?-?\d$/i)
-  end
-
-  def midi
-    note? ? Note.midi(self) : super
-  end
-
-  def freq
-    note? ? Note.freq(self) : super
-  end
-
-  def up(n = 12)
-    note? ? Note.transpose(self, n) : super
-  end
-
-  def down(n = 12)
-    note? ? Note.transpose(self, -n) : super
-  end
-
-  # Generate chord methods
-  Note::CHORDS.each_key do |chord_type|
-    define_method(chord_type) do
-      note? ? Note.chord(self, chord_type) : super()
-    end
-  end
-
-  # Scale helper: :c3.scale(:dorian) or :c3.scale(:blues, octaves: 2)
-  def scale(type, octaves: 1)
-    note? ? Note.scale(self, type, octaves: octaves) : super()
-  end
-
-  # Transpose operators (Symbol doesn't have these by default)
-  def +(other)
-    raise NoMethodError, "undefined method `+' for #{self.inspect}" unless note?
-    Note.transpose(self, other)
-  end
-
-  def -(other)
-    raise NoMethodError, "undefined method `-' for #{self.inspect}" unless note?
-    Note.transpose(self, -other)
-  end
-end
-
-
-module DSP
-  # Convert various note formats to frequency
-  def self.to_freq(note=nil, midi: nil)
-    return Note.midi_to_freq(midi) if midi && note.nil?
-    return Note.freq(note) if note.is_a?(Symbol)
-
-    note.to_f
-  end
-
-  # Convert MIDI number to frequency
-  def self.midi_to_freq(midi)
-    Note::A4_FREQ * (2.0 ** ((midi - Note::A4_MIDI) / 12.0))
-  end
-
-  # Convert various note formats to MIDI
-  def self.to_midi(note)
-    case note
-    when Symbol then Note.midi(note)
-    when Integer then note
-    when Float then (69 + 12 * Math.log2(note / Note::A4_FREQ)).round
-    else raise ArgumentError, "Can't convert #{note.class} to MIDI"
-    end
   end
 end

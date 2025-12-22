@@ -1,4 +1,4 @@
-require_relative '../lib/radspberry'
+require_relative '../../lib/radspberry'
 include DSP
 
 puts "=== DSL Verification ==="
