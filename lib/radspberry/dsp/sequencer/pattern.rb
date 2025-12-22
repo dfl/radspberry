@@ -21,14 +21,35 @@ module DSP
     def parse(pattern)
       case pattern
       when String
-        # Split by whitespace, support '.' or '~' as rests
-        pattern.split(/\s+/).map do |s|
-          if s == '.' || s == '~' || s.downcase == 'r'
-            :r
-          else
-            s.to_sym
+        result = []
+        pattern.split(/\s+/).each do |token|
+          # Scan for note names, rests, or ~ marks
+          parts = token.scan(/([a-g][sb]?-?\d+|[r\.~])/i).flatten
+          
+          parts.each_with_index do |part, i|
+            case part
+            when "~"
+              # If the NEXT part is a note, it will be handled by the next iteration
+              # If THERE IS NO next part, or next part is another ~, it's a tie
+              next_part = parts[i+1]
+              if next_part && next_part.match?(/[a-g][sb]?-?\d/i)
+                # Next note will be legato (will be handled by note branch)
+              else
+                result << :tie
+              end
+            when ".", "r", "R"
+              result << :r
+            when /[a-g][sb]?-?\d/i
+              # Is the PREVIOUS part a ~?
+              if i > 0 && parts[i-1] == "~"
+                result << [:legato, part.to_sym]
+              else
+                result << part.to_sym
+              end
+            end
           end
         end
+        result
       when Array
         pattern.map { |e| rest?(e) ? :r : e }
       else
@@ -63,7 +84,12 @@ module DSP
 
       if @sample_in_step == 0
         note = @pattern[@current_step]
-        if note != :r
+        if note == :r
+          # Optional: gate_off! ?
+        elsif note.is_a?(Array) && note[0] == :legato
+          @synth.set(freq: note[1])
+          # NO trigger!
+        elsif note != :tie
           @synth.set(freq: note)
           @synth.broadcast_method(:trigger!)
         end

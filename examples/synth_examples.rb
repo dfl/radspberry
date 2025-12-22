@@ -48,13 +48,17 @@ end
 # Example 1: Note symbols and simple synth
 #──────────────────────────────────────────────────────────────
 
-puts "1. Pattern Notation"
-puts "   Playing: 'c4 e4 g4 . a3'"
+puts "1. Pattern Notation (with Ties & Legato)"
+puts "   Playing: 'c4~e4 g4 . g3~ c4 g3~~'"
 puts
 
-# Play a pattern with a specific duration per step
-Synth[:basic_saw].play_pattern("c4 e4 g4 . a3", duration: 0.2.beats).wait
-
+# play_pattern is non-blocking (audio runs in background).
+# We call .wait to pause the Ruby script until the pattern finishes.
+# Notation:
+#   'c4~'     Tie: holds c4 for 2 beats
+#   'c4~e4'   Legato: transitions to e4 without re-triggering envelope
+#   '.'       Rest: silence
+Synth[:basic_saw].play_pattern("c4~e4 g4 . g3~ c4 g3~~", duration: 0.3.beats).wait
 puts "   Done.\n\n"
 
 #──────────────────────────────────────────────────────────────
