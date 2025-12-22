@@ -26,7 +26,7 @@ module DSP
     end
 
     def freq=(f)
-      @freq = f
+      @freq = f.to_f
       @master_inc = @freq * inv_srate
     end
 
@@ -77,7 +77,7 @@ module DSP
     end
 
     def freq=(f)
-      @freq = f
+      @freq = f.to_f
       @master_inc = @freq * inv_srate
     end
 
@@ -129,7 +129,7 @@ module DSP
     end
 
     def freq=(f)
-      @freq = f
+      @freq = f.to_f
       @master_inc = @freq * inv_srate
     end
 

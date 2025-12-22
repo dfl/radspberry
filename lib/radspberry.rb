@@ -37,6 +37,7 @@ require_relative './radspberry/dsp/modulation'
 # Utilities
 require_relative './radspberry/dsp/curvable'
 require_relative './radspberry/dsp/oversampling'
+require_relative './radspberry/dsp/fft'
 require_relative './radspberry/dsp/note'
 require_relative './radspberry/dsp/clock'
 require_relative './radspberry/dsp/refinements'
@@ -60,4 +61,3 @@ require_relative './radspberry/dsp/sequencer/arpeggiator'
 # Voices
 require_relative './radspberry/dsp/voice/voice'
 require_relative './radspberry/dsp/voice/sequenced'
-

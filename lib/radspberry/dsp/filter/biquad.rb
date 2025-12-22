@@ -77,7 +77,7 @@ module DSP
     end
 
     def interpolate(target_b, target_a)
-      @interp_period = (@srate * 1e-3).floor
+      @interp_period = (srate * 1e-3).floor
       t = 1.0 / @interp_period
       
       # Vector math for deltas (target - current)
@@ -113,7 +113,7 @@ module DSP
     attr_reader :freq
 
     def freq=(arg)
-      @freq = DSP.to_freq(arg)
+      @freq = DSP.to_freq(arg.to_f)
       @w0 = TWO_PI * @freq * inv_srate
       recalc
     end

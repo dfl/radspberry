@@ -6,7 +6,7 @@ puts "Demonstrating Q parameter (resonance) on bandpass filter"
 
 # Example 1: Low Q (gentle filtering)
 puts "\n1. Low Q (Q=1.0) - gentle bandpass"
-saw = SuperSaw.new(110)
+saw = SuperSaw.new(110, oversample: true)
 saw.spread = 0.8
 bpf = ButterBP.new(500, q: 1.0)
 saw >> bpf >> Speaker
@@ -14,15 +14,15 @@ sleep 3
 
 # Example 2: Medium Q (musical resonance)
 puts "\n2. Medium Q (Q=10.0) - musical resonance"
-saw2 = SuperSaw.new(110)
+saw2 = SuperSaw.new(110, oversample: true)
 saw2.spread = 0.8
 bpf2 = ButterBP.new(500, q: 10.0)
 saw2 >> bpf2 >> Speaker
 sleep 3
 
 # Example 3: High Q (strong resonance)
-puts "\n3. High Q (Q=30.0) - strong resonance (Oversampled)"
-saw3 = DSP.oversample( SuperSaw.new(110) )
+puts "\n3. High Q (Q=30.0) - strong resonance"
+saw3 = SuperSaw.new(110, oversample: true)
 saw3.spread = 0.8
 bpf3 = ButterBP.new(500, q: 30.0)
 saw3 >> bpf3 >> Speaker
@@ -32,7 +32,7 @@ sleep 3
 puts "\n4. Using 'resonance' (0.0 to 1.0 mapping)"
 puts "   resonance = 0.0 maps to Q = 0.707 (No resonance)"
 puts "   resonance = 1.0 maps to Q = 25.0  (Musical peak)"
-saw4 = SuperSaw.new(110)
+saw4 = SuperSaw.new(110, oversample: true)
 bpf4 = ButterBP.new(800)
 saw4 >> bpf4 >> Speaker
 
@@ -50,15 +50,14 @@ sleep 0.5
 
 # Example 5: High Q (Manual control)
 puts "\n5. Manual Q control (Q=100.0) - extreme resonance"
-saw5 = SuperSaw.new(110)
+saw5 = SuperSaw.new(110, oversample: true)
 bpf5 = ButterBP.new(500, q: 100.0)
 saw5 >> bpf5 >> Speaker
 sleep 3.0
 
 # Example 6: Resonant frequency sweep
 puts "\n6. Resonant filter sweep (resonance=0.8, freq 200Hz to 2kHz)"
-puts "   Using 4x Oversampling to clean up SuperSaw aliasing..."
-saw6 = DSP.oversample( SuperSaw.new(110) )
+saw6 = SuperSaw.new(110, oversample: true)
 bpf6 = ButterBP.new(200)
 bpf6.resonance = 0.8
 saw6 >> bpf6 >> Speaker

@@ -2,7 +2,7 @@
 
 module DSP
   class OnePoleZD < Processor
-    attr_accessor :state
+    attr_accessor :state, :freq
     include Math
 
     def initialize
@@ -10,7 +10,8 @@ module DSP
     end
 
     def freq=(freq)
-      @f = tan(PI * freq * inv_srate)
+      @freq = freq.to_f
+      @f = tan(PI * @freq * inv_srate)
       @finv = 1.0 / (1.0 + @f)
     end
 

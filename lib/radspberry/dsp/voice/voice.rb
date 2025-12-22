@@ -93,7 +93,7 @@ module DSP
     end
 
     def freq=(f)
-      @freq = DSP.to_freq(f)
+      @freq = DSP.to_freq(f.to_f)
       @osc.freq = @freq if @osc.respond_to?(:freq=)
     end
 

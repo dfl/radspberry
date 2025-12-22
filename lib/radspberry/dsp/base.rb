@@ -16,8 +16,6 @@ module DSP
     end
 
     def initialize(*args)
-      @srate = self.class.srate
-      @inv_srate = self.class.inv_srate
     end
 
     def srate
@@ -465,7 +463,7 @@ module DSP
     end
 
     def freq=(val)
-      @freq = DSP.to_freq(val)
+      @freq = DSP.to_freq(val.to_f)
     end
 
     def srate= rate
@@ -491,7 +489,7 @@ module DSP
     end
 
     def freq= arg
-      @freq = DSP.to_freq(arg)
+      @freq = DSP.to_freq(arg.to_f)
       @inc  = @freq * inv_srate
     end
   end
@@ -519,7 +517,7 @@ module DSP
     end
 
     def freq= arg
-      @latch.freq = arg
+      @latch.freq = arg.to_f
     end
 
     def tick

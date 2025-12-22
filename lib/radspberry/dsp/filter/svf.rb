@@ -3,10 +3,13 @@
 
 module DSP
   class SVF < Processor
+    include Math
     attr_accessor :kind, :freq
 
     def initialize(kind: :low)
       @kind = kind
+      @q = 0.707
+      @freq = 1000.0
       clear!
     end
 
@@ -18,7 +21,7 @@ module DSP
     end
 
     def freq=(f)
-      @freq = DSP.to_freq(f)
+      @freq = DSP.to_freq(f.to_f)
       recalc
     end
 
@@ -91,7 +94,7 @@ module DSP
     end
 
     def freq=(f, update: true)
-      @freq = DSP.to_freq(f).clamp(20.0, srate * 0.49)
+      @freq = DSP.to_freq(f.to_f).clamp(20.0, srate * 0.49)
       recalc if update
     end
 
