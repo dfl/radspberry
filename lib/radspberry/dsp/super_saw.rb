@@ -32,7 +32,7 @@ module DSP
     end
 
     def freq= f
-      @master.freq = @freq = f.to_f
+      @master.freq = @freq = DSP.to_freq(f)
       detune_phasors
     end
     

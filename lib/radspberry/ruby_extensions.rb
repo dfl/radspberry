@@ -39,8 +39,13 @@ module VectorExtensions
   def zeros count
     full_of(0.0,count)
   end
+
+  def to_v
+    self
+  end
 end
 Vector.send :extend, VectorExtensions
+Vector.send :include, VectorExtensions
 
 
 module ModuleExtensions  

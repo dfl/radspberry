@@ -59,6 +59,30 @@ module DSP
 
   Base.sample_rate = 44.1e3 # default
 
+  class Base
+    # Try to set a parameter on this object.
+    # Returns true if the parameter was set, false otherwise.
+    def broadcast_param(key, value)
+      method_name = "#{key}="
+      if respond_to?(method_name)
+        send(method_name, value)
+        true
+      else
+        false
+      end
+    end
+    
+    # helper for broadcasting method call
+    def broadcast_method(method, *args)
+      if respond_to?(method)
+        send(method, *args)
+        true
+      else
+        false
+      end
+    end
+  end
+
   class Generator < Base
     def tick
       raise "not implemented!"
@@ -84,7 +108,11 @@ module DSP
       when Processor, ProcessorChain
         GeneratorChain.new([self, other])
       when Module  # Check if it's the Speaker module
-        other[self] if other.respond_to?(:[])
+        if other.respond_to?(:play)
+          other.play(self)
+        elsif other.respond_to?(:[])
+          other[self]
+        end
         self
       else
         # Duck-type check for Processor-like objects (e.g. ModulatedProcessor)
@@ -94,6 +122,15 @@ module DSP
           raise ArgumentError, "Can only compose Generator with Processor, ProcessorChain, or Speaker"
         end
       end
+    end
+
+    def play(duration = nil)
+      Speaker.play(self)
+      if duration
+        sleep duration
+        Speaker.stop
+      end
+      self
     end
 
     # Parallel composition
@@ -167,6 +204,13 @@ module DSP
       end
     end
 
+    def * (gain)
+      ProcessorChain.new([self], gain)
+    end
+
+    def / (gain)
+      ProcessorChain.new([self], 1.0 / gain)
+    end
   end
 
   class TickerChain < Base
@@ -445,6 +489,48 @@ module DSP
     def respond_to_missing?(method, include_private = false)
       @gen.respond_to?(method, include_private) || super
     end
+
+    def broadcast_param(key, value)
+      # Try to set on head
+      set_on_gen = @gen.broadcast_param(key, value) if @gen.respond_to?(:broadcast_param)
+      
+      # Try to set on tail components
+      set_on_chain = false
+      @chain.each do |p| 
+        if p.respond_to?(:broadcast_param)
+          set_on_chain = true if p.broadcast_param(key, value)
+        elsif p.respond_to?("#{key}=")
+          p.send("#{key}=", value)
+          set_on_chain = true
+        end
+      end
+
+      set_on_gen || set_on_chain
+    end
+
+    def broadcast_method(method, *args)
+      # Try to call on head
+      called_on_gen = false
+      if @gen.respond_to?(:broadcast_method)
+        called_on_gen = @gen.broadcast_method(method, *args)
+      elsif @gen.respond_to?(method)
+        @gen.send(method, *args)
+        called_on_gen = true
+      end
+
+      # Try to call on tail components
+      called_on_chain = false
+      @chain.each do |p|
+        if p.respond_to?(:broadcast_method)
+          called_on_chain = true if p.broadcast_method(method, *args)
+        elsif p.respond_to?(method)
+          p.send(method, *args)
+          called_on_chain = true
+        end
+      end
+
+      called_on_gen || called_on_chain
+    end
   end
 
 
@@ -463,7 +549,7 @@ module DSP
     end
 
     def freq=(val)
-      @freq = DSP.to_freq(val.to_f)
+      @freq = DSP.to_freq(val)
     end
 
     def srate= rate
@@ -489,7 +575,7 @@ module DSP
     end
 
     def freq= arg
-      @freq = DSP.to_freq(arg.to_f)
+      @freq = DSP.to_freq(arg)
       @inc  = @freq * inv_srate
     end
   end

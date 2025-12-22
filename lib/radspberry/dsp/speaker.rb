@@ -36,8 +36,10 @@ module DSP
 
     # Primary API: Speaker.play(synth) / Speaker.stop
     # Uses NativeSpeaker (buffered) by default if available
-    def play(synth, volume: 1.0, buffered: nil)
+    def play(synth, volume: 1.0, buffered: nil, **opts)
       stop if playing?
+      duration = opts[:duration] || opts[:for]
+      
       synth = synth.new if synth.is_a?(Class)
 
       # Default to native/buffered if available
@@ -50,6 +52,12 @@ module DSP
         @@stream = AudioStream.new(synth, 2**12, volume)
         @@backend = :callback
       end
+
+      if duration
+        sleep duration
+        stop
+      end
+
       self
     end
 

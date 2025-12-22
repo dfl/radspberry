@@ -63,3 +63,4 @@ require_relative './radspberry/dsp/sequencer/arpeggiator'
 # Voices
 require_relative './radspberry/dsp/voice/voice'
 require_relative './radspberry/dsp/voice/sequenced'
+require_relative './radspberry/dsp/synth'

@@ -78,4 +78,41 @@ module DSP
       @envelope.gate_off! if @envelope.respond_to?(:gate_off!)
     end
   end
+
+  module Amp
+    def self.[](envelope)
+      # returns a processor that applies the envelope
+      # In this system, AmpEnvelope is a Generator that wraps another Generator.
+      # But the user wants something they can chain: osc >> filt >> Amp[env]
+      # So we need a Processor that takes an input and multiplies by env.
+      AmpProcessor.new(envelope)
+    end
+  end
+
+  class AmpProcessor < Processor
+    def initialize(envelope)
+      @envelope = envelope
+    end
+    def tick(input)
+      input * @envelope.tick
+    end
+    def ticks(inputs)
+      env_vals = @envelope.ticks(inputs.size)
+      inputs.to_v.zip(env_vals).map { |s, e| s * e }.to_v
+    end
+    def method_missing(m, *a, &b)
+      @envelope.respond_to?(m) ? @envelope.send(m, *a, &b) : super
+    end
+    def respond_to_missing?(m, i = false)
+      @envelope.respond_to?(m, i) || super
+    end
+  end
+
+  module Filt
+    def self.[](params)
+      # filt = Filt[cutoff: 1000, res: 0.7] >> Amp[env]
+      # This is tricky because it needs to be a Processor.
+      # For now, let's keep it simple or see how users want to use it.
+    end
+  end
 end
