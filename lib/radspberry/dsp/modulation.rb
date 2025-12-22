@@ -27,8 +27,8 @@ module DSP
 
     def tick(*args)
       apply_modulations
-      # Support both Generator (0 args) and Processor (1 arg)
-      __getobj__.tick(*args)
+      res = __getobj__.tick(*args)
+      res || 0.0 # Safety fallback
     end
 
     def ticks(inputs_or_samples)
@@ -37,7 +37,7 @@ module DSP
         inputs_or_samples.times.map { tick }.to_v
       else
         # Handle Processor behavior
-        inputs_or_samples.map { |s| tick(s) }
+        inputs_or_samples.to_a.map { |s| tick(s).to_f }.to_v
       end
     end
 
@@ -74,8 +74,9 @@ module DSP
     def apply_modulations
       @modulations.each do |param, mod|
         value = mod[:source].tick
+        next if value.nil?
         transformed = mod[:transform].call(value)
-        __getobj__.send("#{param}=", transformed)
+        __getobj__.send("#{param}=", transformed) if transformed
       end
     end
   end

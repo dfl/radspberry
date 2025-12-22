@@ -55,6 +55,7 @@ require_relative './radspberry/dsp/filter/param_smoother'
 # Envelopes
 require_relative './radspberry/dsp/envelope/analog'
 require_relative './radspberry/dsp/envelope/fiber'
+require_relative './radspberry/dsp/envelope/line'
 require_relative './radspberry/dsp/envelope/amp'
 require_relative './radspberry/dsp/envelope/presets'
 require_relative './radspberry/dsp/sequencer/step'

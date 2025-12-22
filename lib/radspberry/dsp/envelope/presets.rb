@@ -31,5 +31,9 @@ module DSP
     def gate
       AnalogEnvelope.new(attack: 0.001, decay: 0.001, sustain: 1.0, release: 0.001)
     end
+
+    def line(start_val, finish_val, duration)
+      Line.new(start_val, finish_val, duration)
+    end
   end
 end

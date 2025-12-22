@@ -189,20 +189,27 @@ puts "   Done.\n\n"
 
 puts "8. Modulation DSL"
 puts "   Filter cutoff modulated by LFO"
+puts "   LFO rate ramping from 1Hz to 30Hz"
 puts
 
-# Create a noise source and filter with LFO modulation
+# Create a noise source
 noise = Noise.new
-lfo = Phasor.new(3)  # 3Hz LFO
 
-# Modulate filter frequency with range
+# Create a ramp for LFO rate modulation
+lfo_rate_mod = Env.line(1, 40, 3.seconds)
+
+# Create an LFO whose rate is modulated by the ramp
+lfo = Phasor.new(1).modulate(:freq, lfo_rate_mod)
+
+# Modulate filter frequency with LFO
 filter = ButterLP.new(1000)
            .modulate(:freq, lfo, range: 200..3000)
-# Build the chain (noise >> modulated filter)
+
+# Build the chain
 chain = noise >> filter
 
 Speaker.play(chain, volume: 0.3)
-sleep 3
+sleep 4
 Speaker.stop
 
 puts "   Done.\n\n"
