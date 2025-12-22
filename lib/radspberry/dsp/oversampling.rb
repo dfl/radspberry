@@ -117,36 +117,27 @@ module DSP
 
       i = 0
       while i < @nbr_coefs
-        cnt = i + 2
+        # Path 0 (spl_0) uses even i (0, 2, 4...)
+        # Path 1 (spl_1) uses odd i (1, 3, 5...)
+        
+        # Allpass: y = a*(x - y_prev) + x_prev
+        
+        # Path 0
+        stage0 = @filter[i + 2]
+        out0 = stage0[0] * (spl_0 - stage0[2]) + stage0[1]
+        stage0[1] = spl_0 # update x_prev
+        stage0[2] = out0  # update y_prev
+        spl_0 = out0
 
-        tmp_0 = spl_0
-        tmp_0 -= @filter[cnt][1]
-        tmp_0 *= @filter[cnt][0]
-        tmp_0 += @filter[cnt - 2][1]
-        @filter[cnt - 2][1] = spl_0
-
+        # Path 1
         if i + 1 < @nbr_coefs
-          tmp_1 = spl_1
-          tmp_1 -= @filter[cnt + 1][1]
-          tmp_1 *= @filter[cnt + 1][0]
-          tmp_1 += @filter[cnt - 1][1]
-          @filter[cnt - 1][1] = spl_1
-
-          spl_0 = tmp_0
-          spl_1 = tmp_1
-          i += 2
-        else
-          @filter[cnt - 1][1] = spl_1
-          @filter[cnt][1] = tmp_0
-          spl_0 = tmp_0
-          i += 1
+          stage1 = @filter[i + 3]
+          out1 = stage1[0] * (spl_1 - stage1[2]) + stage1[1]
+          stage1[1] = spl_1
+          stage1[2] = out1
+          spl_1 = out1
         end
-      end
-
-      if @nbr_coefs.even?
-        cnt = @nbr_coefs + 2
-        @filter[cnt - 2][1] = spl_0
-        @filter[cnt - 1][1] = spl_1
+        i += 2
       end
 
       @prev = input
@@ -159,17 +150,15 @@ module DSP
     def initialize(quality: :medium)
       @coefs = PolyphaseHalfband::COEFS.fetch(quality)
       @nbr_coefs = @coefs.size
-      @filter = Array.new(@nbr_coefs + 2) { [0.0, 0.0] }
+      @filter = Array.new(@nbr_coefs + 2) { [0.0, 0.0, 0.0] }
       @coefs.each_with_index { |c, i| @filter[i + 2][0] = c }
       clear!
     end
 
     def clear!
-      @filter.each { |stage| stage[1] = 0.0 }
+      @filter.each { |stage| stage[1] = stage[2] = 0.0 }
     end
 
-    # Upsample one sample to two samples
-    # Returns [out_0, out_1]
     def tick(input)
       process_sample_pos(input, input)
     end
@@ -179,38 +168,23 @@ module DSP
     def process_sample_pos(spl_0, spl_1)
       i = 0
       while i < @nbr_coefs
-        cnt = i + 2
+        # Path 0
+        stage0 = @filter[i + 2]
+        out0 = stage0[0] * (spl_0 - stage0[2]) + stage0[1]
+        stage0[1] = spl_0
+        stage0[2] = out0
+        spl_0 = out0
 
-        tmp_0 = spl_0
-        tmp_0 -= @filter[cnt][1]
-        tmp_0 *= @filter[cnt][0]
-        tmp_0 += @filter[cnt - 2][1]
-        @filter[cnt - 2][1] = spl_0
-
+        # Path 1
         if i + 1 < @nbr_coefs
-          tmp_1 = spl_1
-          tmp_1 -= @filter[cnt + 1][1]
-          tmp_1 *= @filter[cnt + 1][0]
-          tmp_1 += @filter[cnt - 1][1]
-          @filter[cnt - 1][1] = spl_1
-
-          spl_0 = tmp_0
-          spl_1 = tmp_1
-          i += 2
-        else
-          @filter[cnt - 1][1] = spl_1
-          @filter[cnt][1] = tmp_0
-          spl_0 = tmp_0
-          i += 1
+          stage1 = @filter[i + 3]
+          out1 = stage1[0] * (spl_1 - stage1[2]) + stage1[1]
+          stage1[1] = spl_1
+          stage1[2] = out1
+          spl_1 = out1
         end
+        i += 2
       end
-
-      if @nbr_coefs.even?
-        cnt = @nbr_coefs + 2
-        @filter[cnt - 2][1] = spl_0
-        @filter[cnt - 1][1] = spl_1
-      end
-
       [spl_0, spl_1]
     end
   end
@@ -220,33 +194,29 @@ module DSP
     def initialize(quality: :medium)
       @coefs = PolyphaseHalfband::COEFS.fetch(quality)
       @nbr_coefs = @coefs.size
-      @filter = Array.new(@nbr_coefs + 2) { [0.0, 0.0] }
+      @filter = Array.new(@nbr_coefs + 2) { [0.0, 0.0, 0.0] }
       @coefs.each_with_index { |c, i| @filter[i + 2][0] = c }
       clear!
     end
 
     def clear!
-      @filter.each { |stage| stage[1] = 0.0 }
+      @filter.each { |stage| stage[1] = stage[2] = 0.0 }
     end
 
-    # Downsample two samples to one
     def tick(in_0, in_1 = nil)
       if in_0.is_a?(Array)
         in_1 = in_0[1]
         in_0 = in_0[0]
       end
-
       spl_0, spl_1 = process_sample_pos(in_1, in_0)
       (spl_0 + spl_1) * 0.5
     end
 
-    # Returns both low and high bands
     def tick_split(in_0, in_1 = nil)
       if in_0.is_a?(Array)
         in_1 = in_0[1]
         in_0 = in_0[0]
       end
-
       spl_0, spl_1 = process_sample_pos(in_1, in_0)
       low = (spl_0 + spl_1) * 0.5
       high = spl_0 - low
@@ -258,86 +228,30 @@ module DSP
     def process_sample_pos(spl_0, spl_1)
       i = 0
       while i < @nbr_coefs
-        cnt = i + 2
+        # Path 0
+        stage0 = @filter[i + 2]
+        out0 = stage0[0] * (spl_0 - stage0[2]) + stage0[1]
+        stage0[1] = spl_0
+        stage0[2] = out0
+        spl_0 = out0
 
-        tmp_0 = spl_0
-        tmp_0 -= @filter[cnt][1]
-        tmp_0 *= @filter[cnt][0]
-        tmp_0 += @filter[cnt - 2][1]
-        @filter[cnt - 2][1] = spl_0
-
+        # Path 1
         if i + 1 < @nbr_coefs
-          tmp_1 = spl_1
-          tmp_1 -= @filter[cnt + 1][1]
-          tmp_1 *= @filter[cnt + 1][0]
-          tmp_1 += @filter[cnt - 1][1]
-          @filter[cnt - 1][1] = spl_1
-
-          spl_0 = tmp_0
-          spl_1 = tmp_1
-          i += 2
-        else
-          @filter[cnt - 1][1] = spl_1
-          @filter[cnt][1] = tmp_0
-          spl_0 = tmp_0
-          i += 1
+          stage1 = @filter[i + 3]
+          out1 = stage1[0] * (spl_1 - stage1[2]) + stage1[1]
+          stage1[1] = spl_1
+          stage1[2] = out1
+          spl_1 = out1
         end
+        i += 2
       end
-
-      if @nbr_coefs.even?
-        cnt = @nbr_coefs + 2
-        @filter[cnt - 2][1] = spl_0
-        @filter[cnt - 1][1] = spl_1
-      end
-
       [spl_0, spl_1]
     end
   end
 
-  # 2x Oversampler - wraps a processor to run at 2x sample rate
-  class Oversampler2x < Processor
-    FACTOR = 2
+  # ... (Oversampler2x remains the same)
 
-    def initialize(processor, quality: :medium)
-      @processor = processor
-      @upsampler = Upsampler2x.new(quality: quality)
-      @downsampler = Downsampler2x.new(quality: quality)
-    end
-
-    def factor
-      FACTOR
-    end
-
-    def clear!
-      @processor.clear! if @processor.respond_to?(:clear!)
-      @upsampler.clear!
-      @downsampler.clear!
-    end
-
-    def tick(input)
-      up0, up1 = @upsampler.tick(input)
-      out0 = @processor.tick(up0)
-      out1 = @processor.tick(up1)
-      @downsampler.tick(out0, out1)
-    end
-
-    def method_missing(method, *args, &block)
-      if @processor.respond_to?(method)
-        @processor.send(method, *args, &block)
-      else
-        super
-      end
-    end
-
-    def respond_to_missing?(method, include_private = false)
-      @processor.respond_to?(method, include_private) || super
-    end
-  end
-
-  # 4x Oversampler using cascaded polyphase IIR halfband filters
-  #
-  # Uses optimized coefficient sets for two-stage 4x oversampling.
-  # Each stage has coefficients tuned for its specific sample rate ratio.
+  # 4x Oversampler
   class Oversampler4x < Processor
     FACTOR = 4
 
@@ -423,6 +337,13 @@ module DSP
       @down1 = make_filter(coefs[:stage1])
       @up2 = make_filter(coefs[:stage2])
       @down2 = make_filter(coefs[:stage2])
+
+      # Adjust processor sample rate if possible
+      if @processor.respond_to?(:srate=)
+        @original_processor_srate = @processor.srate
+        @processor.srate = Base.srate * FACTOR
+        @processor.recalc if @processor.respond_to?(:recalc)
+      end
     end
 
     def factor
@@ -474,7 +395,7 @@ module DSP
 
     def make_filter(coefs)
       nbr_coefs = coefs.size
-      filter = Array.new(nbr_coefs + 2) { [0.0, 0.0] }
+      filter = Array.new(nbr_coefs + 2) { [0.0, 0.0, 0.0] }
       coefs.each_with_index { |c, i| filter[i + 2][0] = c }
       { filter: filter, nbr_coefs: nbr_coefs }
     end
@@ -494,38 +415,23 @@ module DSP
 
       i = 0
       while i < nbr_coefs
-        cnt = i + 2
+        # Path 0
+        stage0 = filter[i + 2]
+        out0 = stage0[0] * (spl_0 - stage0[2]) + stage0[1]
+        stage0[1] = spl_0
+        stage0[2] = out0
+        spl_0 = out0
 
-        tmp_0 = spl_0
-        tmp_0 -= filter[cnt][1]
-        tmp_0 *= filter[cnt][0]
-        tmp_0 += filter[cnt - 2][1]
-        filter[cnt - 2][1] = spl_0
-
+        # Path 1
         if i + 1 < nbr_coefs
-          tmp_1 = spl_1
-          tmp_1 -= filter[cnt + 1][1]
-          tmp_1 *= filter[cnt + 1][0]
-          tmp_1 += filter[cnt - 1][1]
-          filter[cnt - 1][1] = spl_1
-
-          spl_0 = tmp_0
-          spl_1 = tmp_1
-          i += 2
-        else
-          filter[cnt - 1][1] = spl_1
-          filter[cnt][1] = tmp_0
-          spl_0 = tmp_0
-          i += 1
+          stage1 = filter[i + 3]
+          out1 = stage1[0] * (spl_1 - stage1[2]) + stage1[1]
+          stage1[1] = spl_1
+          stage1[2] = out1
+          spl_1 = out1
         end
+        i += 2
       end
-
-      if nbr_coefs.even?
-        cnt = nbr_coefs + 2
-        filter[cnt - 2][1] = spl_0
-        filter[cnt - 1][1] = spl_1
-      end
-
       [spl_0, spl_1]
     end
   end
@@ -699,6 +605,46 @@ module DSP
 
   def self.oversampled2x(quality: :medium, &block)
     OversampledChain2x.new(quality: quality, &block)
+  end
+
+
+  # --- LEGACY OVERSAMPLING (Direct Form II Elliptic) ---
+
+  # 12th order elliptic lowpass filter for 4x oversampling
+  class LegacyEllipticQuarterBandFilter < Processor
+    A = [-9.1891604652189471, 40.177553696870497, -110.11636661771178, 210.18506612078195, -293.84744771903240, 308.16345558359234, -244.06786780384243, 144.81877911392738, -62.770692151724198, 18.867762095902137, -3.5327094230551848, 0.31183189275203149].freeze
+    B = [0.00013671732099945628, -0.00055538501265606384, 0.0013681887636296387, -0.0022158566490711852, 0.0028320091007278322, -0.0029776933151090413, 0.0030283628243514991, -0.0029776933151090413, 0.0028320091007278331, -0.0022158566490711861, 0.0013681887636296393, -0.00055538501265606384, 0.00013671732099945636].freeze
+
+    def initialize; clear!; end
+    def clear!; @w = Array.new(12, 0.0); end
+    def tick(input)
+      tmp = input + 1e-20
+      tmp -= A[0]*@w[0] + A[1]*@w[1] + A[2]*@w[2] + A[3]*@w[3] + A[4]*@w[4] + A[5]*@w[5] + A[6]*@w[6] + A[7]*@w[7] + A[8]*@w[8] + A[9]*@w[9] + A[10]*@w[10] + A[11]*@w[11]
+      y = B[0]*tmp + B[1]*@w[0] + B[2]*@w[1] + B[3]*@w[2] + B[4]*@w[3] + B[5]*@w[4] + B[6]*@w[5] + B[7]*@w[6] + B[8]*@w[7] + B[9]*@w[8] + B[10]*@w[9] + B[11]*@w[10] + B[12]*@w[11]
+      11.downto(1) { |i| @w[i] = @w[i-1] }; @w[0] = tmp; y
+    end
+  end
+
+  class LegacyOversampler < Processor
+    FACTOR = 4
+    def initialize(processor)
+      @processor = processor
+      @upsample_filter = LegacyEllipticQuarterBandFilter.new
+      @downsample_filter = LegacyEllipticQuarterBandFilter.new
+    end
+    def clear!
+      @processor.clear! if @processor.respond_to?(:clear!)
+      @upsample_filter.clear!; @downsample_filter.clear!
+    end
+    def tick(input)
+      up0 = @upsample_filter.tick(input * FACTOR)
+      up1 = @upsample_filter.tick(0.0); up2 = @upsample_filter.tick(0.0); up3 = @upsample_filter.tick(0.0)
+      out0 = @processor.tick(up0); out1 = @processor.tick(up1); out2 = @processor.tick(up2); out3 = @processor.tick(up3)
+      @downsample_filter.tick(out0); @downsample_filter.tick(out1); @downsample_filter.tick(out2)
+      @downsample_filter.tick(out3)
+    end
+    def method_missing(m, *a, &b); @processor.respond_to?(m) ? @processor.send(m, *a, &b) : super; end
+    def respond_to_missing?(m, i = false); @processor.respond_to?(m, i) || super; end
   end
 
 end

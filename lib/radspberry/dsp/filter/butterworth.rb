@@ -43,7 +43,7 @@ module DSP
       a1 = 2.0 * -gamma
       a2 = 2.0 * beta
 
-      update(Vector[b0, b1, b2], Vector[a0, a1, a2])
+      update([b0, b1, b2], [a0, a1, a2])
       normalize if @a[0] != 1.0
     end
   end
@@ -61,7 +61,7 @@ module DSP
       a1 = 2.0 * (k * k - 1.0) * norm
       a2 = (1.0 - k * @inv_q + k * k) * norm
 
-      update(Vector[b0, b1, b2], Vector[a0, a1, a2])
+      update([b0, b1, b2], [a0, a1, a2])
     end
   end
 
@@ -78,7 +78,7 @@ module DSP
       a1 = 2.0 * (k * k - 1.0) * norm
       a2 = (1.0 - k * @inv_q + k * k) * norm
 
-      update(Vector[b0, b1, b2], Vector[a0, a1, a2])
+      update([b0, b1, b2], [a0, a1, a2])
     end
   end
 
@@ -95,7 +95,7 @@ module DSP
       a1 = b1
       a2 = (1.0 - k * @inv_q + k * k) * norm
 
-      update(Vector[b0, b1, b2], Vector[a0, a1, a2])
+      update([b0, b1, b2], [a0, a1, a2])
     end
   end
 
@@ -130,7 +130,7 @@ module DSP
         a2 = (1.0 - v * @inv_q * k + k * k) * norm
       end
 
-      update(Vector[b0, b1, b2], Vector[a0, a1, a2])
+      update([b0, b1, b2], [a0, a1, a2])
     end
   end
 
@@ -165,7 +165,7 @@ module DSP
         a2 = (1.0 - ::Math.sqrt(2.0 * v) * k + v * k * k) * norm
       end
 
-      update(Vector[b0, b1, b2], Vector[a0, a1, a2])
+      update([b0, b1, b2], [a0, a1, a2])
     end
   end
 
@@ -200,7 +200,7 @@ module DSP
         a2 = (v - ::Math.sqrt(2.0 * v) * k + k * k) * norm
       end
 
-      update(Vector[b0, b1, b2], Vector[a0, a1, a2])
+      update([b0, b1, b2], [a0, a1, a2])
     end
   end
 end

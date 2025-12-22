@@ -8,12 +8,28 @@ module DSP
     class_attribute :srate
     class_attribute :inv_srate
 
-    def sample_rate
-      self.class.srate
+    attr_writer :inv_srate
+
+    def srate= rate
+      @srate = rate
+      @inv_srate = 1.0 / rate.to_f
     end
 
-    def srate= arg
-      raise "can't change instance srate"
+    def initialize(*args)
+      @srate = self.class.srate
+      @inv_srate = self.class.inv_srate
+    end
+
+    def srate
+      @srate || self.class.srate
+    end
+
+    def inv_srate
+      @inv_srate || self.class.inv_srate
+    end
+
+    def sample_rate
+      srate
     end
 
     def self.sample_rate
@@ -164,6 +180,20 @@ module DSP
     def self.[] *chain
       new(chain)
     end
+
+    def srate= rate
+      super
+      @chain.each do |processor|
+        if processor.respond_to?(:srate=)
+          processor.srate = rate 
+          processor.recalc if processor.respond_to?(:recalc)
+        end
+      end
+    end
+
+    def recalc
+      @chain.each { |processor| processor.recalc if processor.respond_to?(:recalc) }
+    end
   end
 
   class ProcessorChain < TickerChain
@@ -266,7 +296,12 @@ module DSP
       b = @b.ticks(samples)
       (b-a)*@fade + a  # TODO cos fade?
     end 
-
+    
+    def srate= rate
+      super
+      @a.srate = rate if @a.respond_to?(:srate=)
+      @b.srate = rate if @b.respond_to?(:srate=)
+    end
   end
 
   class GainMixer < Generator
@@ -300,6 +335,11 @@ module DSP
 
     def ticks samples
       @mix.each_with_index.inject( Vector.zeros(samples) ){|sum,(o,i)| sum + @gains[i] * o.ticks(samples) }
+    end
+
+    def srate= rate
+      super
+      @mix.each { |o| o.srate = rate if o.respond_to?(:srate=) }
     end
   end
 
@@ -382,6 +422,19 @@ module DSP
       end
     end
 
+    def srate= rate
+      super
+      if @gen.respond_to?(:srate=)
+        @gen.srate = rate
+        @gen.recalc if @gen.respond_to?(:recalc)
+      end
+    end
+
+    def recalc
+      super
+      @gen.recalc if @gen.respond_to?(:recalc)
+    end
+
     # Delegate unknown methods to the wrapped generator
     def method_missing(method, *args, &block)
       if @gen.respond_to?(method)
@@ -413,6 +466,11 @@ module DSP
 
     def freq=(val)
       @freq = DSP.to_freq(val)
+    end
+
+    def srate= rate
+      super
+      self.freq = @freq # trigger recalc of dependent values (inc, alpha, etc)
     end
   end
 
@@ -467,6 +525,11 @@ module DSP
     def tick
       @latch.tick( DSP.noise )
     end
+
+    def srate= rate
+      super
+      @latch.srate = rate if @latch.respond_to?(:srate=)
+    end
   end
 
   class Spicer < Processor
@@ -484,6 +547,11 @@ module DSP
 
     def tick
       @slew.tick( super )
+    end
+
+    def srate= rate
+      super
+      @slew.srate = rate if @slew.respond_to?(:srate=)
     end
   end
 

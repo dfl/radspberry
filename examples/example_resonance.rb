@@ -21,37 +21,51 @@ saw2 >> bpf2 >> Speaker
 sleep 3
 
 # Example 3: High Q (strong resonance)
-puts "\n3. High Q (Q=30.0) - strong resonance"
-saw3 = SuperSaw.new(110)
+puts "\n3. High Q (Q=30.0) - strong resonance (Oversampled)"
+saw3 = DSP.oversample( SuperSaw.new(110) )
 saw3.spread = 0.8
 bpf3 = ButterBP.new(500, q: 30.0)
 saw3 >> bpf3 >> Speaker
 sleep 3
 
-# Example 4: Sweeping Q
-puts "\n4. Sweeping Q from 1 to 50"
+# Example 4: The 'resonance' parameter (0.0 to 1.0)
+puts "\n4. Using 'resonance' (0.0 to 1.0 mapping)"
+puts "   resonance = 0.0 maps to Q = 0.707 (No resonance)"
+puts "   resonance = 1.0 maps to Q = 25.0  (Musical peak)"
 saw4 = SuperSaw.new(110)
-saw4.spread = 0.6
-bpf4 = ButterBP.new(800, q: 1.0)
+bpf4 = ButterBP.new(800)
 saw4 >> bpf4 >> Speaker
 
-puts "   Increasing resonance..."
+puts "   Sweeping resonance from 0.0 to 1.0..."
 40.times do |i|
-  bpf4.q = 1.0 + i * 1.25  # Q from 1 to 50
-  puts "   Q = #{bpf4.instance_variable_get(:@inv_q) ? (1.0 / bpf4.instance_variable_get(:@inv_q)).round(1) : '?'}" if i % 10 == 0
-  sleep 0.15
+  res = i / 40.0
+  bpf4.resonance = res
+  if i % 10 == 0
+    q_val = 1.0 / bpf4.instance_variable_get(:@inv_q)
+    puts "   resonance = #{res.round(2)} => Q = #{q_val.round(2)}"
+  end
+  sleep 0.1
 end
+sleep 0.5
 
-# Example 5: Resonant sweep (filter frequency sweep with high Q)
-puts "\n5. Resonant filter sweep (Q=25, freq 200Hz to 2kHz)"
+# Example 5: High Q (Manual control)
+puts "\n5. Manual Q control (Q=100.0) - extreme resonance"
 saw5 = SuperSaw.new(110)
-saw5.spread = 0.7
-bpf5 = ButterBP.new(200, q: 25.0)
+bpf5 = ButterBP.new(500, q: 100.0)
 saw5 >> bpf5 >> Speaker
+sleep 3.0
+
+# Example 6: Resonant frequency sweep
+puts "\n6. Resonant filter sweep (resonance=0.8, freq 200Hz to 2kHz)"
+puts "   Using 4x Oversampling to clean up SuperSaw aliasing..."
+saw6 = DSP.oversample( SuperSaw.new(110) )
+bpf6 = ButterBP.new(200)
+bpf6.resonance = 0.8
+saw6 >> bpf6 >> Speaker
 
 puts "   Sweeping frequency..."
 50.times do |i|
-  bpf5.freq = 200 + i * 36  # 200Hz to 2kHz
+  bpf6.freq = 200 + i * 36  # 200Hz to 2kHz
   sleep 0.1
 end
 
@@ -61,8 +75,9 @@ sleep 1
 
 puts "\n✓ Resonance demo complete!"
 puts "\nSummary:"
-puts "  Q = 1-5:    Gentle filtering (subtle resonance)"
-puts "  Q = 5-20:   Musical resonance (明显 resonance)"
-puts "  Q = 20-100: Strong resonance (ringing)"
-puts "  Q = 100+:   Extreme resonance (very loud, self-oscillation)"
+puts "  resonance = 0-1:  Easy musical control (Q: 0.7 to 25.0)"
+puts "  q = 1-5:          Gentle filtering (subtle resonance)"
+puts "  q = 5-20:         Musical resonance (noticable resonance)"
+puts "  q = 20-100:       Strong resonance (ringing)"
+puts "  q = 100+:         Extreme resonance (very loud, self-oscillation)"
 puts "\nThe filter is stable at all Q values, but gets very loud above Q=100"

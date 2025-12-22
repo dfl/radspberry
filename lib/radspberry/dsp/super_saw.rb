@@ -76,6 +76,12 @@ module DSP
       -0.55366*x + 0.99785
     end
 
+    def srate= rate
+      super
+      @master.srate = rate
+      @phasors.each { |p| p.srate = rate }
+    end
+
   end
 
 end

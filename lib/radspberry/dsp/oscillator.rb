@@ -15,6 +15,11 @@ module DSP
     def tock
       @phasor.phase.tap{ @phasor.tick }
     end
+
+    def srate= rate
+      super
+      @phasor.srate = rate
+    end
   end
 
   class Tri < PhasorOscillator
@@ -63,6 +68,11 @@ module DSP
     def tick
       @state += @alpha * (@last_out - @state)  # one-pole averager (5kHz cutoff)
       @last_out = sin( TWO_PI * tock + @beta * @state )
+    end
+
+    def srate= rate
+      super
+      @alpha = 1.0 - ::Math.exp(-TWO_PI * RPM_CUTOFF * inv_srate)
     end
   end
 

@@ -190,5 +190,13 @@ module DSP
     def ticks(samples)
       samples.times.map { tick }.to_v
     end
+
+    def srate= rate
+      super
+      @osc.srate = rate if @osc.respond_to?(:srate=)
+      @filter.srate = rate if @filter.respond_to?(:srate=)
+      @amp_env.srate = rate if @amp_env.respond_to?(:srate=)
+      @filter_env.srate = rate if @filter_env.respond_to?(:srate=)
+    end
   end
 end
