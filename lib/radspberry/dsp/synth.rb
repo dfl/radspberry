@@ -47,6 +47,26 @@ module DSP
         super
         @chain.srate = rate if @chain.respond_to?(:srate=)
       end
+
+      # Play a sequence of notes and rests
+      # duration: duration per step
+      def play_pattern(pattern, duration: 0.25)
+        Pattern[pattern].each do |note|
+          if note == :r
+            sleep duration
+          else
+            # We can't use .play(duration) here because it blocks the whole chain
+            # We want to fire a note and then sleep for the step duration
+            # But SynthInstance *is* the instrument.
+            
+            # For monophonic synths, we update the freq and trigger
+            set(freq: note)
+            broadcast_method(:trigger!)
+            sleep duration
+          end
+        end
+        self
+      end
     end
   end
 end

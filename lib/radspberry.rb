@@ -59,6 +59,7 @@ require_relative './radspberry/dsp/envelope/amp'
 require_relative './radspberry/dsp/envelope/presets'
 require_relative './radspberry/dsp/sequencer/step'
 require_relative './radspberry/dsp/sequencer/arpeggiator'
+require_relative './radspberry/dsp/sequencer/pattern'
 
 # Voices
 require_relative './radspberry/dsp/voice/voice'

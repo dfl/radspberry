@@ -57,7 +57,19 @@ Synth[:basic_saw, freq: :c4].play(0.5)
 sleep 0.2
 Synth[:basic_saw, freq: :e4].play(0.5)
 sleep 0.2
-Synth[:basic_saw, freq: :g4].play(1.0)
+Synth[:basic_saw, freq: :g4].play(0.2)
+sleep 0.2
+
+#──────────────────────────────────────────────────────────────
+# Example 2: Pattern Notation (Strudel/SC style)
+#──────────────────────────────────────────────────────────────
+
+puts "2. Pattern Notation"
+puts "   Playing: 'c4 e4 g4 . a3'"
+puts
+
+# Play a pattern with a specific duration per step
+Synth[:basic_saw].play_pattern("c4 e4 g4 . a3", duration: 0.2.beats)
 
 puts "   Done.\n\n"
 
