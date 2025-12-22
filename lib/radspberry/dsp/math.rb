@@ -10,13 +10,15 @@ module DSP
   end
   include Constants
 
-  module Math  # TODO make lookup tables?
-    def sin x
-      ::Math.sin x
+  module Math
+    extend self
+
+    def sin(x)
+      ::Math.sin(x)
     end
 
-    def cos x
-      ::Math.cos x
+    def cos(x)
+      ::Math.cos(x)
     end
 
     def tan x
@@ -109,17 +111,28 @@ module DSP
 
   class LookupTable  # linear interpolated, input goes from 0 to 1
     def initialize opts={}
-      opts.reverse_merge! :bits => 7, :scale => 1.0, :offset => 0
-      @size, @scale, @offset  = 2 ** opts[:bits], opts[:scale], opts[:offset]
-      @table = @size.times.map{|x| yield( x.to_f / @size ) }
+      opts = { :bits => 7, :scale => 1.0, :offset => 0 }.merge(opts)
+      @bits = opts[:bits]
+      @size = 1 << @bits
+      @mask = @size - 1
+      @scale, @offset = opts[:scale], opts[:offset]
+      @table = Array.new(@size) { |x| yield(x.to_f / @size) }
     end
 
-    def []( arg )  # input goes from 0 to 1
-      offset = arg * @size
-      idx = offset.floor
-      frac = offset - idx
-      output = idx >= @size - 1 ? @table.last : DSP.xfade( @table[idx], @table[idx+1], frac )
-      # output = @scale * output + offset
+    def [](arg) # input goes from 0 to 1
+      # Multiply by size once
+      pos = arg * @size
+      idx = pos.to_i
+      frac = pos - idx
+      
+      # Boundary check
+      if idx >= @mask
+        @table[@mask]
+      else
+        a = @table[idx]
+        b = @table[idx + 1]
+        (b - a) * frac + a
+      end
     end
   end
   

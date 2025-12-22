@@ -7,9 +7,9 @@ module DSP
       case @curve
       when :linear then value
       when :exponential
-        direction == :up ? value ** 2 : value ** 0.5
+        direction == :up ? value * value : ::Math.sqrt(value)
       when :logarithmic
-        direction == :up ? value ** 0.5 : value ** 2
+        direction == :up ? ::Math.sqrt(value) : value * value
       else value
       end
     end

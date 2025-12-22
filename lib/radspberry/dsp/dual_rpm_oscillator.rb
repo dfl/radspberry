@@ -33,15 +33,10 @@ module DSP
       end
 
       def process(phase)
-        # Morphing feedback: 0.0 = saw-like (straight feedback), 1.0 = square-like (squared feedback)
-        # Using abs(last_out) or last_out**2 provides the even harmonic content for square vibes
-        fb_signal = DSP.xfade(@last_out, @last_out * @last_out, @morph)
-        
-        # One-pole averager
+        fb_signal = (@last_out * @last_out - @last_out) * @morph + @last_out
         @state = 0.5 * (@state + fb_signal)
         
-        # RPM Core: Apply morphing to beta sign as well (RpmSquare uses negative feedback in radspberry)
-        eff_beta = @beta * DSP.xfade(1.0, -1.0, @morph)
+        eff_beta = @beta * (1.0 - 2.0 * @morph)
         @last_out = sin(DSP::TWO_PI * phase + eff_beta * @state)
       end
     end
@@ -103,7 +98,7 @@ module DSP
     def tick
       # 1. Update FM modulator
       @fm_mod_phase += @fm_mod_inc
-      @fm_mod_phase -= @fm_mod_phase.floor
+      @fm_mod_phase -= 1.0 if @fm_mod_phase >= 1.0
       @last_fm_mod_out = @fm_mod_osc.process(@fm_mod_phase)
 
       # 2. Calculate master phase modulation (Feedback from slaves)
@@ -115,11 +110,15 @@ module DSP
 
       # 3. Generate master oscillator output
       eff_master_phase = @master_phase + master_pm
-      eff_master_phase -= eff_master_phase.floor
+      # PM can be large, use while or if if it's constrained
+      if eff_master_phase >= 1.0
+        eff_master_phase -= 1.0 while eff_master_phase >= 1.0
+      elsif eff_master_phase < 0.0
+        eff_master_phase += 1.0 while eff_master_phase < 0.0
+      end
       @last_master_out = @master_osc.process(eff_master_phase)
 
       # 4. Calculate slave phases (Hard Sync)
-      # Slave 1: reset at 0, Slave 2: offset by duty (0.5 = 180deg for perfect COLA)
       base_slave_phase1 = @master_phase * @sync_ratio
       base_slave_phase2 = base_slave_phase1 + @duty
 
@@ -139,14 +138,14 @@ module DSP
       @last_slave_out2 = @slave_osc2.process(slave_phase2)
 
       # 7. Apply Kaiser windows (COLA)
-      w1 = get_window_value(slave_phase1)
-      w2 = get_window_value(slave_phase2)
+      w1 = @window[slave_phase1]
+      w2 = @window[slave_phase2]
 
       output = 0.5 * (@last_slave_out1 * w1 + @last_slave_out2 * w2)
 
       # 8. Advance master phase
       @master_phase += @master_inc
-      @master_phase -= @master_phase.floor
+      @master_phase -= 1.0 if @master_phase >= 1.0
 
       output
     end

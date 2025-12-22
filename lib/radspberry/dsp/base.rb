@@ -423,8 +423,9 @@ module DSP
     end
 
     def tick
-      @phase += @inc                     # increment
-      @phase -= OFFSET[ @phase <= 1.0 ]  # wrap
+      @phase += @inc
+      @phase -= 1.0 if @phase >= 1.0
+      @phase
     end
 
     def freq= arg
@@ -435,10 +436,13 @@ module DSP
 
   class Decimator < Phasor
     def tick input
-      @phase += @inc              # increment
-      nowrap = @phase <= 1.0
-      @phase -= OFFSET[ nowrap ]  # wrap
-      nowrap ? @last : @last=input
+      @phase += @inc
+      if @phase <= 1.0
+        @last
+      else
+        @phase -= 1.0
+        @last = input
+      end
     end
 
   end
