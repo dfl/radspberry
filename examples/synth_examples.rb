@@ -28,19 +28,28 @@ DSP::Synth.define :basic_saw do |freq: 440, amp: 1.0|
   SuperSaw.new(freq) >> Amp[Env.perc(attack: 0.1, decay: 0.2)] * amp
 end
 
-DSP::Synth.define :acid do |freq: :c2, cutoff: 1000, res: 0.7|
-  # Acid sound: Sawtooth -> Lowpass with resonance -> Envelope
+DSP::Synth.define :acid do |freq: :c2, cutoff: 250, res: 0.5, resonance: nil, attack: nil|
+  # Support aliases
+  res = resonance if resonance
+  atk = attack || 0.005 # Default attack
+
+  # Acid sound: RpmSaw -> Lowpass with resonance -> Envelope
+  # Matched precisely to Voice.acid preset
   osc = RpmSaw.new(freq)
   
-  # Filter envelope for that "squelch"
-  f_env = Env.adsr(attack: 0.01, decay: 0.2, sustain: 0.1, release: 0.1)
+  # Filter envelope: snappy percussive pip
+  f_env = Env.perc(attack: 0.001, decay: 0.15)
   
-  # Amp envelope
-  a_env = Env.adsr(attack: 0.01, decay: 0.2, sustain: 0.0, release: 0.1)
+  # Amp envelope: short ADSR
+  # Use 'atk' for attack time
+  a_env = Env.adsr(attack: atk, decay: 0.1, sustain: 0.0, release: 0.05)
   
-  # Filter modulation
+  # Filter modulation: base 250Hz + (0..1 * 3500Hz)
+  filt = ButterLP.new(cutoff)
+  filt.q = res * 15.0 + 0.5 # Map 0..1 res to 0.5..15.5 Q
+  
   osc >> 
-    ButterLP.new(cutoff).modulate(:freq, f_env, range: 100..3000) >> 
+    filt.modulate(:freq, f_env, range: cutoff..(cutoff + 3500)) >> 
     Amp[a_env]
 end
 
@@ -216,31 +225,6 @@ Speaker.play(chain, volume: 0.3)
 sleep 4
 Speaker.stop
 
-puts "   Done.\n\n"
-
-#──────────────────────────────────────────────────────────────
-# Example 9: Voice parameter aliases
-#──────────────────────────────────────────────────────────────
-
-puts "8. Voice parameter aliases"
-puts "   Tweaking cutoff, resonance, envelope"
-puts
-
-v = Voice.acid
-Speaker.play(v, volume: 0.4)
-
-# Use parameter aliases for clean API
-v.set(cutoff: 300, resonance: 0.9, attack: 0.001)
-v.play(:a2)
-sleep 0.3
-
-# Sweep cutoff up
-5.times do |i|
-  v.cutoff = 300 + i * 400
-  sleep 0.1
-end
-
-Speaker.stop
 puts "   Done.\n\n"
 
 puts "All examples complete!"

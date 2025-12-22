@@ -69,6 +69,25 @@ module DSP
       @modulations.keys
     end
 
+    def broadcast_method(method, *args)
+      # Forward to modulation sources (e.g. trigger envelopes)
+      @modulations.each_value do |mod|
+        src = mod[:source]
+        if src.respond_to?(:broadcast_method)
+          src.broadcast_method(method, *args)
+        elsif src.respond_to?(method)
+          src.send(method, *args)
+        end
+      end
+
+      # Forward to wrapped object
+      if __getobj__.respond_to?(:broadcast_method)
+        __getobj__.broadcast_method(method, *args)
+      elsif __getobj__.respond_to?(method)
+        __getobj__.send(method, *args)
+      end
+    end
+
     private
 
     def apply_modulations
