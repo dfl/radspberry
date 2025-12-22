@@ -29,6 +29,7 @@ require_relative './radspberry/dsp/native_speaker'
 require_relative './radspberry/dsp/oscillator'
 require_relative './radspberry/dsp/super_saw'
 require_relative './radspberry/dsp/dual_rpm_oscillator'
+require_relative './radspberry/dsp/naive_rpm_sync'
 
 # Modulation (must come before filters so they get the mixin)
 require_relative './radspberry/dsp/modulation'
