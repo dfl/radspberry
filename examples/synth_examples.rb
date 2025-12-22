@@ -49,7 +49,7 @@ end
 #──────────────────────────────────────────────────────────────
 
 puts "1. Pattern Notation (with Ties & Legato)"
-puts "   Playing: 'c4~e4 g4 . g3~ c4 g3~~'"
+puts "   Playing: 'c4 e4 g4 c5 . g4 c5- .'"
 puts
 
 # play_pattern is non-blocking (audio runs in background).
@@ -58,7 +58,7 @@ puts
 #   'c4~'     Tie: holds c4 for 2 beats
 #   'c4~e4'   Legato: transitions to e4 without re-triggering envelope
 #   '.'       Rest: silence
-Synth[:basic_saw].play_pattern("c4~e4 g4 . g3~ c4 g3~~", duration: 0.3.beats).wait
+Synth[:basic_saw].play_pattern("c4 e4 g4 c5 . g4 c5- .", duration: 0.3.beats).wait
 puts "   Done.\n\n"
 
 #──────────────────────────────────────────────────────────────
@@ -134,26 +134,26 @@ puts "   Done.\n\n"
 # Example 5: Voice.pad preset
 #──────────────────────────────────────────────────────────────
 
-puts "5. Pad sound (Voice.pad preset)"
-puts
+# puts "5. Pad sound (Voice.pad preset)"
+# puts
 
-pad = Voice.pad
-pad.play(:c3)
+# pad = Voice.pad
+# pad.play(:c3)
 
-Speaker.play(pad, volume: 0.25)
-sleep 2.0
-pad.stop
-sleep 1.5
-Speaker.stop
+# Speaker.play(pad, volume: 0.25)
+# sleep 2.0
+# pad.stop
+# sleep 1.5
+# Speaker.stop
 
-puts "   Done.\n\n"
+# puts "   Done.\n\n"
 
 
 #──────────────────────────────────────────────────────────────
 # Example 4: Pad sound
 #──────────────────────────────────────────────────────────────
 
-puts "4. Pad sound"
+puts "5. Pad sound"
 puts
 
 # Pad envelopes need time to release, so 'play(duration)' works well
@@ -170,7 +170,7 @@ puts "   Done.\n\n"
 # Example 5: Timing helpers
 #──────────────────────────────────────────────────────────────
 
-puts "5. Timing helpers (Clock.bpm = #{Clock.bpm})"
+puts "6. Timing helpers (Clock.bpm = #{Clock.bpm})"
 puts "   1.beat = #{1.beat.round(3)}s"
 puts
 
@@ -191,16 +191,16 @@ puts "   Done.\n\n"
 # Example 8: Modulation DSL
 #──────────────────────────────────────────────────────────────
 
-puts "8. Modulation DSL"
+puts "7. Modulation DSL"
 puts "   Filter cutoff modulated by LFO"
-puts "   LFO rate ramping exponentially from 1Hz to 40Hz"
+puts "   LFO rate ramping exponentially from 1Hz to 30Hz"
 puts
 
 # Create a noise source
 noise = Noise.new
 
 # Create an exponential ramp for LFO rate modulation
-lfo_rate_mod = Env.linexp(1, 40, 3.seconds)
+lfo_rate_mod = Env.linexp(1, 30, 3.seconds)
 
 # Create an LFO whose rate is modulated by the ramp
 lfo = Phasor.new(1).modulate(:freq, lfo_rate_mod)
@@ -222,7 +222,7 @@ puts "   Done.\n\n"
 # Example 9: Voice parameter aliases
 #──────────────────────────────────────────────────────────────
 
-puts "9. Voice parameter aliases"
+puts "8. Voice parameter aliases"
 puts "   Tweaking cutoff, resonance, envelope"
 puts
 
