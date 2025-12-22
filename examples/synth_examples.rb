@@ -32,7 +32,7 @@ DSP::Synth.define :acid do |note: 220, cutoff: 1000, res: 0.5, gate: 0.0|
   osc = RpmSaw.new(note)
   filt = ButterLP.new(cutoff, q: res * 20.0 + 0.5)
   env = Env.perc(attack: 0.01, decay: 0.2)
-  # A simple acid synth for sequencing
+  # A simple acid synth
   osc >> filt >> Amp[env]
 end
 
@@ -50,7 +50,6 @@ end
 
 puts "1. Note Symbols & Synth Usage"
 puts "   :a3.freq = #{:a3.freq.round(2)} Hz"
-puts "   :c4.major = #{:c4.major.inspect}"
 puts
 
 # Play a named synth for a duration
@@ -74,11 +73,14 @@ puts
 
 pattern = [:a2, :c3, :a2, :e3, :a2, :c3, :a3, :e3]
 
-pattern.each do |note|
-  # Fire and forget synth shots
-  Synth[:acid, note: note, cutoff: 1500, res: 0.7].play(0.15)
-  sleep 0.15
-end
+seq = SequencedSynth.new(
+  voice: Voice.acid,
+  sequencer: StepSequencer.new(pattern: pattern, step_duration: 0.15)
+)
+
+Speaker.play(seq, volume: 0.4)
+sleep 3
+Speaker.stop
 
 puts "   Done.\n\n"
 
@@ -92,14 +94,57 @@ puts "3. Arpeggiator with :c4.major chord"
 puts
 
 arp = ArpSynth.new(
-  notes: :c4.major.map(&:midi),
+  notes: :c4.major,
   step_duration: 0.1,
   mode: :up,
   octaves: 2
 )
 
-# Play the generator for 3 seconds
-arp.play(3)
+# Now we can access envelope directly
+arp.voice.amp_env.attack = 0.005
+arp.voice.amp_env.release = 0.1
+
+Speaker.play(arp, volume: 0.3)
+sleep 3
+Speaker.stop
+
+puts "   Done.\n\n"
+
+#──────────────────────────────────────────────────────────────
+# Example 4: Arpeggiator - Up/Down with minor chord
+#──────────────────────────────────────────────────────────────
+
+puts "4. Arpeggiator - :a3.minor, Up/Down mode"
+puts
+
+arp2 = ArpSynth.new(
+  notes: :a3.minor,
+  step_duration: 0.08,
+  mode: :up_down,
+  octaves: 2
+)
+
+Speaker.play(arp2, volume: 0.3)
+sleep 3
+Speaker.stop
+
+puts "   Done.\n\n"
+
+#──────────────────────────────────────────────────────────────
+# Example 5: Voice.pad preset
+#──────────────────────────────────────────────────────────────
+
+puts "5. Pad sound (Voice.pad preset)"
+puts
+
+pad = Voice.pad
+pad.play(:c3)
+
+Speaker.play(pad, volume: 0.25)
+sleep 2.0
+pad.stop
+sleep 1.5
+Speaker.stop
 
 puts "   Done.\n\n"
 
@@ -128,74 +173,63 @@ puts "   Done.\n\n"
 puts "5. Timing helpers (Clock.bpm = #{Clock.bpm})"
 puts "   1.beat = #{1.beat.round(3)}s"
 puts
-puts "   Playing on the beat..."
 
-[:c4, :d4, :e4, :c4].each do |note|
-  Synth[:pluck, note: note].play(0.5)
-  # Sleep for the remainder of the beat?
-  # Actually play(0.5) blocks. 
-  # If we want to sequence tightly, we sleep instead of blocking play.
-  # But play() blocks. 
-  
-  # To sequence:
-  # Speaker.play(synth) (non-blocking)
-  # sleep ...
-  # Speaker.stop
-  
-  # OR rely on short percussive sounds just finishing naturally.
-  # Let's use the explicit sleep for rhythm.
+lead = Voice.lead
+Speaker.play(lead, volume: 0.3)
+
+2.times do 
+  [:c4, :d4, :e4, :f4].each do |note|
+    lead.play(note)
+    sleep 0.5.beats
+  end
 end
 
-puts "   (Rhythmic sequence...)"
-[:c4, :d4, :e4, :f4].each do |note|
-  # Non-blocking fire
-  Speaker.play(Synth[:pluck, note: note], duration: 0.2)
-  sleep 1.beat
-end
+Speaker.stop
+puts "   Done.\n\n"
+
+#──────────────────────────────────────────────────────────────
+# Example 8: Modulation DSL
+#──────────────────────────────────────────────────────────────
+
+puts "8. Modulation DSL"
+puts "   Filter cutoff modulated by LFO"
+puts
+
+# Create a noise source and filter with LFO modulation
+noise = Noise.new
+lfo = Phasor.new(3)  # 3Hz LFO
+
+# Modulate filter frequency with range
+filter = ButterLP.new(1000)
+           .modulate(:freq, lfo, range: 200..3000)
+# Build the chain (noise >> modulated filter)
+chain = noise >> filter
+
+Speaker.play(chain, volume: 0.3)
+sleep 3
+Speaker.stop
 
 puts "   Done.\n\n"
 
-
 #──────────────────────────────────────────────────────────────
-# Example 6: Live parameter modulation
+# Example 9: Voice parameter aliases
 #──────────────────────────────────────────────────────────────
 
-puts "6. Live parameter modulation"
-puts "   Sweeping cutoff on a running synth"
+puts "9. Voice parameter aliases"
+puts "   Tweaking cutoff, resonance, envelope"
 puts
 
-# We define a synth that exposes parameters we want to tweak
-DSP::Synth.define :sweep_pad do |freq: 220, cutoff: 500|
-  # We use a symbol for cutoff so we can easily target it?
-  # No, Synth#set looks for setters.
-  # ButterLP has freq=. We'll map 'cutoff' to it in the loop manually 
-  # or ensure our objects expose the right setters.
-  
-  # Let's just use the filter instance's setter.
-  saw = SuperSaw.new(freq)
-  filt = ButterLP.new(cutoff)
-  # We want to be able to set filt.freq later.
-  # Synth#set does broadcast_param.
-  # If we call s.set(freq: 800), it might try to set saw.freq AND filt.freq!
-  # That's a feature/bug of broadcast.
-  # So we probably want named parameters if we want distinct control.
-  # But here, we'll just show updating the filter if we can.
-  
-  saw >> filt >> Amp[Env.gate]
-end
+v = Voice.acid
+Speaker.play(v, volume: 0.4)
 
-s = Synth[:sweep_pad, freq: :c3, cutoff: 400]
-Speaker.play(s)
+# Use parameter aliases for clean API
+v.set(cutoff: 300, resonance: 0.9, attack: 0.001)
+v.play(:a2)
+sleep 0.3
 
-20.times do |i|
-  # ButterLP has a 'freq=' method.
-  # Synth#set(freq: ...) will find it.
-  # BUT SuperSaw ALSO has 'freq='. 
-  # So setting 'freq' changes pitch AND cutoff.
-  # That's actually a cool effect for this demo!
-  
-  new_freq = 400 + i * 50
-  s.set(freq: new_freq)
+# Sweep cutoff up
+5.times do |i|
+  v.cutoff = 300 + i * 400
   sleep 0.1
 end
 

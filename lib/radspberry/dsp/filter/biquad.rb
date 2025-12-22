@@ -111,11 +111,13 @@ module DSP
     end
 
     attr_reader :freq
+    alias_method :cutoff, :freq
 
     def freq=(arg)
       @freq = DSP.to_freq(arg)
       @w0 = TWO_PI * @freq * inv_srate
       recalc
     end
+    alias_method :cutoff=, :freq=
   end
 end

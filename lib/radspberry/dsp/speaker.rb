@@ -53,6 +53,13 @@ module DSP
         @@backend = :callback
       end
 
+      # Auto-trigger envelopes
+      if synth.respond_to?(:broadcast_method)
+        synth.broadcast_method(:trigger!)
+      elsif synth.respond_to?(:trigger!)
+        synth.trigger!
+      end
+
       if duration
         sleep duration
         stop

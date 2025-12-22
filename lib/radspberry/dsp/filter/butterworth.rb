@@ -6,7 +6,7 @@ module DSP
     MAX_Q = 25.0
 
     def initialize(f = 100, q: nil)
-      super([1.0, 0, 0], [1.0, 0, 0], interpolate: true)
+      super([1.0, 0, 0], [1.0, 0, 0], interpolate: false)
       @inv_q = q ? 1.0 / q : SQRT2
       self.freq = f
     end
@@ -17,6 +17,8 @@ module DSP
       target_q = SQRT2_2 * (MAX_Q / SQRT2_2) ** @resonance
       self.q = target_q
     end
+    alias_method :res=, :resonance=
+    alias_method :res, :resonance
 
     def q
       1.0 / @inv_q

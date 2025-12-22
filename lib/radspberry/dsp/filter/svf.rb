@@ -5,6 +5,7 @@ module DSP
   class SVF < Processor
     include Math
     attr_accessor :kind, :freq
+    attr_reader :q
 
     def initialize(kind: :low)
       @kind = kind
@@ -21,14 +22,18 @@ module DSP
     end
 
     def freq=(f)
-      @freq = DSP.to_freq(f.to_f)
+      @freq = DSP.to_freq(f)
       recalc
     end
+    alias_method :cutoff=, :freq=
+    alias_method :cutoff, :freq
 
     def q=(q)
       @q = q
       recalc
     end
+    alias_method :res=, :q=
+    alias_method :res, :q
 
     def recalc
       @g = tan(PI * @freq * inv_srate)
@@ -56,7 +61,13 @@ module DSP
 
     def tick(input)
       process(input)
-      @output[@kind]
+      case @kind
+      when :low, :lp then @output[:lp]
+      when :band, :bp then @output[:bp]
+      when :high, :hp then @output[:hp]
+      when :notch then @output[:notch]
+      else @output[@kind]
+      end
     end
   end
 
@@ -94,14 +105,18 @@ module DSP
     end
 
     def freq=(f, update: true)
-      @freq = DSP.to_freq(f.to_f).clamp(20.0, srate * 0.49)
+      @freq = DSP.to_freq(f).clamp(20.0, srate * 0.49)
       recalc if update
     end
+    alias_method :cutoff=, :freq=
+    alias_method :cutoff, :freq
 
     def q=(value, update: true)
       @q = value.clamp(0.5, 50.0)
       recalc if update
     end
+    alias_method :res=, :q=
+    alias_method :res, :q
 
     def drive=(db)
       @drive = db

@@ -45,6 +45,7 @@ module DSP
     # allows for setting multiple values at once
     def [] args={}
       args.each_pair{ |k,v| send "#{k}=", v }
+      self
     end
 
     def calc_sample_value(db, bits)
@@ -80,6 +81,15 @@ module DSP
       else
         false
       end
+    end
+
+    def play(duration = nil)
+      Speaker.play(self)
+      if duration
+        sleep duration
+        Speaker.stop
+      end
+      self
     end
   end
 
@@ -122,15 +132,6 @@ module DSP
           raise ArgumentError, "Can only compose Generator with Processor, ProcessorChain, or Speaker"
         end
       end
-    end
-
-    def play(duration = nil)
-      Speaker.play(self)
-      if duration
-        sleep duration
-        Speaker.stop
-      end
-      self
     end
 
     # Parallel composition
@@ -191,7 +192,7 @@ module DSP
     end
 
     def ticks inputs
-      inputs.map{|s| tick(s) }
+      inputs.map{|s| tick(s) }.to_v
     end
 
     # Enable function composition with >> operator
@@ -235,6 +236,45 @@ module DSP
 
     def recalc
       @chain.each { |processor| processor.recalc if processor.respond_to?(:recalc) }
+      @gen.recalc if respond_to?(:@gen) && @gen && @gen.respond_to?(:recalc)
+    end
+
+    def broadcast_param(key, value)
+      called_on_gen = false
+      if defined?(@gen) && @gen
+        called_on_gen = @gen.broadcast_param(key, value) if @gen.respond_to?(:broadcast_param)
+        called_on_gen ||= (@gen.send("#{key}=", value) ; true) if @gen.respond_to?("#{key}=")
+      end
+
+      called_on_chain = false
+      @chain.each do |p|
+        if p.respond_to?(:broadcast_param)
+          called_on_chain = true if p.broadcast_param(key, value)
+        elsif p.respond_to?("#{key}=")
+          p.send("#{key}=", value)
+          called_on_chain = true
+        end
+      end
+      called_on_gen || called_on_chain || super
+    end
+
+    def broadcast_method(method, *args)
+      called_on_gen = false
+      if defined?(@gen) && @gen
+        called_on_gen = @gen.broadcast_method(method, *args) if @gen.respond_to?(:broadcast_method)
+        called_on_gen ||= (@gen.send(method, *args) ; true) if @gen.respond_to?(method)
+      end
+
+      called_on_chain = false
+      @chain.each do |p|
+        if p.respond_to?(:broadcast_method)
+          called_on_chain = true if p.broadcast_method(method, *args)
+        elsif p.respond_to?(method)
+          p.send(method, *args)
+          called_on_chain = true
+        end
+      end
+      called_on_gen || called_on_chain
     end
   end
 
@@ -409,7 +449,11 @@ module DSP
       when Processor, ProcessorChain
         GeneratorChain.new([@gen] + @chain + [other], @gain)
       when Module  # Speaker module
-        other[self] if other.respond_to?(:[])
+        if other.respond_to?(:play)
+          other.play(self)
+        elsif other.respond_to?(:[])
+          other[self]
+        end
         self
       else
         raise ArgumentError, "Can only compose GeneratorChain with Processor, ProcessorChain, or Speaker"
@@ -491,45 +535,11 @@ module DSP
     end
 
     def broadcast_param(key, value)
-      # Try to set on head
-      set_on_gen = @gen.broadcast_param(key, value) if @gen.respond_to?(:broadcast_param)
-      
-      # Try to set on tail components
-      set_on_chain = false
-      @chain.each do |p| 
-        if p.respond_to?(:broadcast_param)
-          set_on_chain = true if p.broadcast_param(key, value)
-        elsif p.respond_to?("#{key}=")
-          p.send("#{key}=", value)
-          set_on_chain = true
-        end
-      end
-
-      set_on_gen || set_on_chain
+      super
     end
 
     def broadcast_method(method, *args)
-      # Try to call on head
-      called_on_gen = false
-      if @gen.respond_to?(:broadcast_method)
-        called_on_gen = @gen.broadcast_method(method, *args)
-      elsif @gen.respond_to?(method)
-        @gen.send(method, *args)
-        called_on_gen = true
-      end
-
-      # Try to call on tail components
-      called_on_chain = false
-      @chain.each do |p|
-        if p.respond_to?(:broadcast_method)
-          called_on_chain = true if p.broadcast_method(method, *args)
-        elsif p.respond_to?(method)
-          p.send(method, *args)
-          called_on_chain = true
-        end
-      end
-
-      called_on_gen || called_on_chain
+      super
     end
   end
 

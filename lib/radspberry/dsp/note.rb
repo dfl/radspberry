@@ -137,13 +137,16 @@ end
 
 module DSP
   # Convert various note formats to frequency
-  def self.to_freq(note)
-    case note
-    when Symbol then Note.freq(note)
-    when Integer then note < 128 ? Note::A4_FREQ * (2.0 ** ((note - 69) / 12.0)) : note.to_f
-    when Float then note
-    else raise ArgumentError, "Can't convert #{note.class} to frequency"
-    end
+  def self.to_freq(note=nil, midi: nil)
+    return Note.midi_to_freq(midi) if midi && note.nil?
+    return Note.freq(note) if note.is_a?(Symbol)
+
+    note.to_f
+  end
+
+  # Convert MIDI number to frequency
+  def self.midi_to_freq(midi)
+    Note::A4_FREQ * (2.0 ** ((midi - Note::A4_MIDI) / 12.0))
   end
 
   # Convert various note formats to MIDI
