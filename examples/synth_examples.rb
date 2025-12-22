@@ -28,12 +28,20 @@ DSP::Synth.define :basic_saw do |freq: 440, amp: 1.0|
   SuperSaw.new(freq) >> Amp[Env.perc(attack: 0.1, decay: 0.2)] * amp
 end
 
-DSP::Synth.define :acid do |note: 220, cutoff: 1000, res: 0.5, gate: 0.0|
-  osc = RpmSaw.new(note)
-  filt = ButterLP.new(cutoff, q: res * 20.0 + 0.5)
-  env = Env.perc(attack: 0.01, decay: 0.2)
-  # A simple acid synth
-  osc >> filt >> Amp[env]
+DSP::Synth.define :acid do |freq: :c2, cutoff: 1000, res: 0.7|
+  # Acid sound: Sawtooth -> Lowpass with resonance -> Envelope
+  osc = RpmSaw.new(freq)
+  
+  # Filter envelope for that "squelch"
+  f_env = Env.adsr(attack: 0.01, decay: 0.2, sustain: 0.1, release: 0.1)
+  
+  # Amp envelope
+  a_env = Env.adsr(attack: 0.01, decay: 0.2, sustain: 0.0, release: 0.1)
+  
+  # Filter modulation
+  osc >> 
+    ButterLP.new(cutoff).modulate(:freq, f_env, range: 100..3000) >> 
+    Amp[a_env]
 end
 
 DSP::Synth.define :pad do |note: 220|
@@ -67,20 +75,12 @@ puts "   Done.\n\n"
 # We can still use the class-based Voice presets if we prefer
 # explicit object management, or we can wrap them in a Synth definition if we want.
 
-puts "2. Acid Bassline (Synth style)"
-puts "   Using simple sequence"
+
+puts "2. Acid Bassline (Pattern DSL)"
+puts "   Using Synth[:acid] with pattern 'a2 c3 a2 e3 a2 c3 a3 e3'"
 puts
 
-pattern = %i[ a2 c3 a2 e3 a2 c3 a3 e3 ]
-
-seq = SequencedSynth.new(
-  voice: Voice.acid,
-  sequencer: StepSequencer.new(pattern:, step_duration: 0.15)
-)
-
-Speaker.play(seq, volume: 0.4)
-sleep 3
-Speaker.stop
+Synth[:acid].play_pattern("a2 c3 a2 e3 a2 c3 a3 e3", duration: 0.3.beats).wait
 
 puts "   Done.\n\n"
 
