@@ -12,8 +12,9 @@ A real-time audio DSP library for Ruby based on ffi-portaudio, designed to creat
 - Real-time output with ffi-portaudio
 - Native C extension for glitch-free audio
 - Output to speaker or wave file
-- Basic oscillator and filter classes
-- MIDI input via portmidi
+- **DualRPMOscillator**: Antialiased hard sync, through-zero FM, and PWM
+- **Voice**: High-level subtractive synth wrapper with flexible parts
+- MIDI input via portmidi ? (_untested_)
 - Refinements for scoped DSP extensions
 - 4x oversampling with anti-aliasing
 - Audio-rate filter modulation
@@ -27,18 +28,23 @@ include DSP
 # Play a note with Voice preset
 voice = Voice.acid
 Speaker.play(voice, volume: 0.4)
-voice.play(:a2)
-sleep 0.5
-voice.stop
-sleep 0.3
+
+# Play :a2 for 0.5 seconds (blocks)
+voice.play(:a2, 0.5)
+
 Speaker.stop
 ```
 
-See `/examples` for more.
+See `/examples` for more. Notable scripts to run:
+
+- **`examples/synth_examples.rb`**: A comprehensive tour of the API, including patterns, arpeggiators, timing helpers, and modulation.
+- **`examples/naive_rpm_sync_demo.rb`**: An educational comparison demonstrating the audible difference between naive (aliasing) and proper (antialiased) oscillator hard sync.
+- **`examples/dual_rpm_showcase.rb`**: A deep dive into the advanced features of `DualRPMOscillator`, showcasing through-zero FM, PWM, and Kaiser window morphing.
+
 
 ## Note Symbols
 
-Use Ruby symbols for musical notes:
+Use Ruby symbols for musical notes. Most methods expecting a frequency (like `Voice#freq=`) accept these directly.
 
 ```ruby
 :c4.freq           # => 261.63 Hz
@@ -55,9 +61,9 @@ Use Ruby symbols for musical notes:
 
 Available scales: `major`, `minor`, `harmonic_minor`, `melodic_minor`, `dorian`, `phrygian`, `lydian`, `mixolydian`, `locrian`, `pentatonic`, `minor_pentatonic`, `blues`, `chromatic`, `whole_tone`.
 
-## Voice Presets
+## Voice & Presets
 
-Ready-to-use synthesizer voices:
+`Voice` is a flexible subtractive synthesizer chain (Oscillator -> Filter -> Amplifier).
 
 ```ruby
 # Presets - optionally pass a note to start immediately
@@ -67,19 +73,55 @@ v = Voice.pluck(:e4)   # Plucky percussive sound
 v = Voice.lead(:g4)    # Monophonic lead
 
 # Control voices
-v.play(:c4)            # Trigger note
-v.stop                 # Release note
+v.play(:c4)            # Trigger note (on)
+v.play(:c4, 0.5)       # Trigger note for 0.5 seconds
+v.stop                 # Release note (off)
 
+# Custom Voice Construction
+# Pass classes (auto-instantiated) or specific instances
+v = Voice.new(
+  osc: DualRPMOscillator,
+  filter: AudioRateSVF,
+  amp_env: Env.adsr(attack: 0.1),
+  filter_env: Env.perc
+)
+```
+
+### Parameter Control
+
+```ruby
 # Parameter aliases for clean API
 v.cutoff = 2000        # Filter base frequency
-v.resonance = 0.8      # Filter resonance (alias: v.res)
+v.res = 0.8            # Filter resonance
 v.attack = 0.01        # Amp envelope attack
 v.decay = 0.2          # Amp envelope decay
 v.sustain = 0.6        # Amp envelope sustain level
 v.release = 0.3        # Amp envelope release
 
 # Bulk parameter update
-v.set(cutoff: 1500, resonance: 0.5, attack: 0.05)
+v.set(cutoff: 1500, res: 0.5, attack: 0.05)
+```
+
+## DualRPMOscillator
+
+The `DualRPMOscillator` is a feature-rich oscillator providing antialiased hard sync, PWM, and FM using Recursive Phase Modulation (RPM) and Kaiser windowing.
+
+```ruby
+osc = DualRPMOscillator.new(:c3.freq)
+
+# Antialiased Hard Sync & PWM
+osc.sync_ratio = 2.5       # Sync frequency ratio
+osc.window_alpha = 4.0     # Window smoothness (higher = smoother, less aliasing)
+osc.duty = 0.5             # Pulse width (or phase offset for dual slaves)
+
+# RPM Core Parameters
+osc.beta = 1.5             # Recursive modulation amount (harmonic richness)
+osc.morph = 0.5            # Morph between Saw-like (0.0) and Square-like (1.0)
+
+# Modulation Example
+# Modulate sync ratio for "laser" sweeps
+lfo = Phasor.new(0.5)
+osc_mod = osc.modulate(:sync_ratio, lfo, range: 1.0..8.0)
 ```
 
 ## Envelope Presets
@@ -93,6 +135,8 @@ Env.ad(attack: 0.01, decay: 0.5)
 ```
 
 ## Timing Extensions
+
+Time values default to seconds, but helpers exist for beat-based logic:
 
 ```ruby
 Clock.bpm = 140
@@ -121,9 +165,6 @@ filter = filter.modulate(:q, lfo) { |v| 0.5 + v * 10 }
 filter = ButterLP.new(1000)
            .modulate(:freq, lfo1, range: 200..4000)
            .modulate(:q, lfo2, range: 0.5..10)
-
-# Tick as normal - modulation happens automatically
-output = filter.tick(input)
 ```
 
 ## Speaker API
@@ -131,6 +172,9 @@ output = filter.tick(input)
 ```ruby
 # Play any generator
 Speaker.play(voice, volume: 0.4)
+
+# Play with duration (stops automatically)
+Speaker.play(voice, volume: 0.4, duration: 2.0)
 
 # Stop playback
 Speaker.stop
