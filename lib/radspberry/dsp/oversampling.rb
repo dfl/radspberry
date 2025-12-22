@@ -251,8 +251,54 @@ module DSP
 
   # ... (Oversampler2x remains the same)
 
+  module OversamplingUtils
+    private
+    def make_filter(coefs)
+      nbr_coefs = coefs.size
+      filter = Array.new(nbr_coefs + 2) { [0.0, 0.0, 0.0] }
+      coefs.each_with_index { |c, i| filter[i + 2][0] = c }
+      { filter: filter, nbr_coefs: nbr_coefs }
+    end
+
+    def upsample(state, input)
+      process_allpass(state, input, input)
+    end
+
+    def downsample(state, in_0, in_1)
+      spl_0, spl_1 = process_allpass(state, in_1, in_0)
+      (spl_0 + spl_1) * 0.5
+    end
+
+    def process_allpass(state, spl_0, spl_1)
+      filter = state[:filter]
+      nbr_coefs = state[:nbr_coefs]
+
+      i = 0
+      while i < nbr_coefs
+        # Path 0
+        stage0 = filter[i + 2]
+        out0 = stage0[0] * (spl_0 - stage0[2]) + stage0[1]
+        stage0[1] = spl_0
+        stage0[2] = out0
+        spl_0 = out0
+
+        # Path 1
+        if i + 1 < nbr_coefs
+          stage1 = filter[i + 3]
+          out1 = stage1[0] * (spl_1 - stage1[2]) + stage1[1]
+          stage1[1] = spl_1
+          stage1[2] = out1
+          spl_1 = out1
+        end
+        i += 2
+      end
+      [spl_0, spl_1]
+    end
+  end
+
   # 4x Oversampler
   class Oversampler4x < Processor
+    include OversamplingUtils
     FACTOR = 4
 
     # Optimized coefficient pairs for 4x oversampling
@@ -379,6 +425,56 @@ module DSP
       downsample(@down2, d2_0, d2_1)
     end
 
+    # method_missing/respond_to_missing? already in file
+  end
+
+  # 4x Oversampler specifically for Generators (no input)
+  class GeneratorOversampler < Generator
+    include OversamplingUtils
+    FACTOR = 4
+
+    def initialize(processor, quality: :medium)
+      @processor = processor
+      @quality = quality
+      coefs = Oversampler4x::COEFS_4X.fetch(quality)
+
+      # Only need downsampling filters
+      @down1 = make_filter(coefs[:stage1])
+      @down2 = make_filter(coefs[:stage2])
+
+      # Adjust processor sample rate
+      if @processor.respond_to?(:srate=)
+        @processor.srate = Base.srate * FACTOR
+        @processor.recalc if @processor.respond_to?(:recalc)
+      end
+    end
+
+    def factor
+      FACTOR
+    end
+    
+    def clear!
+      @processor.clear! if @processor.respond_to?(:clear!)
+      [@down1, @down2].each do |f|
+        f[:filter].each { |stage| stage[1] = 0.0 }
+      end
+    end
+
+    def tick
+      # Generate 4 samples at 4x rate
+      out0 = @processor.tick
+      out1 = @processor.tick
+      out2 = @processor.tick
+      out3 = @processor.tick
+
+      # Downsample 4x → 2x
+      d2_0 = downsample(@down1, out0, out1)
+      d2_1 = downsample(@down1, out2, out3)
+
+      # Downsample 2x → 1x
+      downsample(@down2, d2_0, d2_1)
+    end
+
     def method_missing(method, *args, &block)
       if @processor.respond_to?(method)
         @processor.send(method, *args, &block)
@@ -390,55 +486,18 @@ module DSP
     def respond_to_missing?(method, include_private = false)
       @processor.respond_to?(method, include_private) || super
     end
-
-    private
-
-    def make_filter(coefs)
-      nbr_coefs = coefs.size
-      filter = Array.new(nbr_coefs + 2) { [0.0, 0.0, 0.0] }
-      coefs.each_with_index { |c, i| filter[i + 2][0] = c }
-      { filter: filter, nbr_coefs: nbr_coefs }
-    end
-
-    def upsample(state, input)
-      process_allpass(state, input, input)
-    end
-
-    def downsample(state, in_0, in_1)
-      spl_0, spl_1 = process_allpass(state, in_1, in_0)
-      (spl_0 + spl_1) * 0.5
-    end
-
-    def process_allpass(state, spl_0, spl_1)
-      filter = state[:filter]
-      nbr_coefs = state[:nbr_coefs]
-
-      i = 0
-      while i < nbr_coefs
-        # Path 0
-        stage0 = filter[i + 2]
-        out0 = stage0[0] * (spl_0 - stage0[2]) + stage0[1]
-        stage0[1] = spl_0
-        stage0[2] = out0
-        spl_0 = out0
-
-        # Path 1
-        if i + 1 < nbr_coefs
-          stage1 = filter[i + 3]
-          out1 = stage1[0] * (spl_1 - stage1[2]) + stage1[1]
-          stage1[1] = spl_1
-          stage1[2] = out1
-          spl_1 = out1
-        end
-        i += 2
-      end
-      [spl_0, spl_1]
-    end
   end
 
   # Convenience methods
   def self.oversample(processor, quality: :medium)
-    Oversampler4x.new(processor, quality: quality)
+    is_generator = processor.is_a?(Generator) || 
+                  (processor.respond_to?(:tick) && processor.method(:tick).arity == 0)
+
+    if is_generator
+      GeneratorOversampler.new(processor, quality: quality)
+    else
+      Oversampler4x.new(processor, quality: quality)
+    end
   end
 
   def self.oversample2x(processor, quality: :medium)

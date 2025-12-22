@@ -44,7 +44,7 @@ module DSP
       a2 = 2.0 * beta
 
       update([b0, b1, b2], [a0, a1, a2])
-      normalize if @a[0] != 1.0
+      normalize if a[0] != 1.0
     end
   end
 
@@ -71,7 +71,8 @@ module DSP
       k = tan(PI * @freq * inv_srate)
       norm = 1.0 / (1.0 + k * @inv_q + k * k)
 
-      b0 = k * norm
+      # Bandpass at unity gain: b0 = k * inv_q * norm
+      b0 = k * @inv_q * norm
       b1 = 0.0
       b2 = -b0
       a0 = 1.0
@@ -88,6 +89,9 @@ module DSP
       k = tan(PI * @freq * inv_srate)
       norm = 1.0 / (1.0 + k * @inv_q + k * k)
 
+      # Notch at unity gain: b0 = (1 + k^2) * norm
+      # Frequency response at freq is (1 - k^2)/(1 - k^2) = 1.0? 
+      # Actually for Notch, standard is b0=1, b1=a1, b2=1, norm...
       b0 = (1.0 + k * k) * norm
       b1 = 2.0 * (k * k - 1.0) * norm
       b2 = b0
@@ -100,107 +104,4 @@ module DSP
   end
 
 
-  class ButterPeak < Butterworth
-    param_accessor :gain, :default => 0.0, :after_set => Proc.new { recalc }
-
-    def initialize(f = 1000, q: nil, gain: 0.0)
-      @gain = gain
-      super(f, q: q)
-    end
-
-    def recalc
-      k = tan(PI * @freq * inv_srate)
-      v = 10.0 ** (@gain.abs / 20.0)
-
-      if @gain >= 0.0
-        norm = 1.0 / (1.0 + @inv_q * k + k * k)
-        b0 = (1.0 + v * @inv_q * k + k * k) * norm
-        b1 = 2.0 * (k * k - 1.0) * norm
-        b2 = (1.0 - v * @inv_q * k + k * k) * norm
-        a0 = 1.0
-        a1 = b1
-        a2 = (1.0 - @inv_q * k + k * k) * norm
-      else
-        norm = 1.0 / (1.0 + v * @inv_q * k + k * k)
-        b0 = (1.0 + @inv_q * k + k * k) * norm
-        b1 = 2.0 * (k * k - 1.0) * norm
-        b2 = (1.0 - @inv_q * k + k * k) * norm
-        a0 = 1.0
-        a1 = b1
-        a2 = (1.0 - v * @inv_q * k + k * k) * norm
-      end
-
-      update([b0, b1, b2], [a0, a1, a2])
-    end
-  end
-
-
-  class ButterLowShelf < Butterworth
-    param_accessor :gain, :default => 0.0, :after_set => Proc.new { recalc }
-
-    def initialize(f = 1000, q: nil, gain: 0.0)
-      @gain = gain
-      super(f, q: q)
-    end
-
-    def recalc
-      k = tan(PI * @freq * inv_srate)
-      v = 10.0 ** (@gain.abs / 20.0)
-
-      if @gain >= 0.0
-        norm = 1.0 / (1.0 + SQRT2 * k + k * k)
-        b0 = (1.0 + ::Math.sqrt(2.0 * v) * k + v * k * k) * norm
-        b1 = 2.0 * (v * k * k - 1.0) * norm
-        b2 = (1.0 - ::Math.sqrt(2.0 * v) * k + v * k * k) * norm
-        a0 = 1.0
-        a1 = 2.0 * (k * k - 1.0) * norm
-        a2 = (1.0 - SQRT2 * k + k * k) * norm
-      else
-        norm = 1.0 / (1.0 + ::Math.sqrt(2.0 * v) * k + v * k * k)
-        b0 = (1.0 + SQRT2 * k + k * k) * norm
-        b1 = 2.0 * (k * k - 1.0) * norm
-        b2 = (1.0 - SQRT2 * k + k * k) * norm
-        a0 = 1.0
-        a1 = 2.0 * (v * k * k - 1.0) * norm
-        a2 = (1.0 - ::Math.sqrt(2.0 * v) * k + v * k * k) * norm
-      end
-
-      update([b0, b1, b2], [a0, a1, a2])
-    end
-  end
-
-
-  class ButterHighShelf < Butterworth
-    param_accessor :gain, :default => 0.0, :after_set => Proc.new { recalc }
-
-    def initialize(f = 1000, q: nil, gain: 0.0)
-      @gain = gain
-      super(f, q: q)
-    end
-
-    def recalc
-      k = tan(PI * @freq * inv_srate)
-      v = 10.0 ** (@gain.abs / 20.0)
-
-      if @gain >= 0.0
-        norm = 1.0 / (1.0 + SQRT2 * k + k * k)
-        b0 = (v + ::Math.sqrt(2.0 * v) * k + k * k) * norm
-        b1 = 2.0 * (k * k - v) * norm
-        b2 = (v - ::Math.sqrt(2.0 * v) * k + k * k) * norm
-        a0 = 1.0
-        a1 = 2.0 * (k * k - 1.0) * norm
-        a2 = (1.0 - SQRT2 * k + k * k) * norm
-      else
-        norm = 1.0 / (v + ::Math.sqrt(2.0 * v) * k + k * k)
-        b0 = (1.0 + SQRT2 * k + k * k) * norm
-        b1 = 2.0 * (k * k - 1.0) * norm
-        b2 = (1.0 - SQRT2 * k + k * k) * norm
-        a0 = 1.0
-        a1 = 2.0 * (k * k - v) * norm
-        a2 = (v - ::Math.sqrt(2.0 * v) * k + k * k) * norm
-      end
-
-      update([b0, b1, b2], [a0, a1, a2])
-    end
-  end
 end
