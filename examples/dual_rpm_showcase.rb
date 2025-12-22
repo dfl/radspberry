@@ -26,15 +26,12 @@ showcase "Classic Hard Sync Sweep (Vocal Formants)" do
   osc.window_alpha = 3.0 # High alpha for smooth, vocal quality
   osc.beta = 1.5
   
-  Speaker.play(osc, volume: 0.4)
+  # Use an LFO for a continuous smooth sweep
+  lfo = Phasor.new(0.3)
+  osc = osc.modulate(:sync_ratio, lfo, range: 1.0..10.0)
   
-  # Sweep sync_ratio from 1.0 to 10.0
-  steps = 60
-  duration = 3.0
-  steps.times do |i|
-    osc.sync_ratio = 1.0 + 9.0 * (i.to_f / steps)
-    sleep duration / steps
-  end
+  Speaker.play(osc, volume: 0.4)
+  sleep 6.0
   
   Speaker.stop
 end
@@ -66,13 +63,14 @@ showcase "Through-Zero Linear FM (Bell Tones)" do
   osc.fm_ratio = 1.414 # Non-harmonic ratio
   osc.fm_linear_amt = 1.0 # 100% Linear FM
   
+  # Grow FM Index using an envelope
+  env = AnalogADEnvelope.new(attack: 2.5, decay: 0.5)
+  osc = osc.modulate(:fm_index, env, range: 0.0..4.0)
+  
   Speaker.play(osc, volume: 0.3)
   
-  # Grow FM Index
-  8.times do |i|
-    osc.fm_index = i * 0.5
-    sleep 0.3
-  end
+  env.trigger!
+  sleep 4.0
   
   Speaker.stop
 end
@@ -120,15 +118,14 @@ showcase "Saw-Square Morphing (RPM Core Dynamics)" do
   osc.window_alpha = 4.0
   osc.beta = 1.5
   
+  # Use a slow LFO to morph back and forth
+  lfo = Phasor.new(0.5)
+  osc = osc.modulate(:morph, lfo, range: 0.0..1.0)
+  
   Speaker.play(osc, volume: 0.4)
   
-  puts "    Morphing from RpmSaw (0.0) to RpmSquare (1.0)"
-  steps = 40
-  steps.times do |i|
-    osc.morph = i.to_f / steps
-    sleep 0.05
-  end
-  sleep 1.0
+  puts "    Morphing smoothly from RpmSaw to RpmSquare at 0.5Hz"
+  sleep 4.0
   
   Speaker.stop
 end
@@ -145,7 +142,7 @@ showcase "PWM via Slave Offset (LFO Modulated)" do
   
   # Modulate the 'duty' parameter
   # In DualRPM, 'duty' is the phase offset between slaves
-  osc.modulate(:duty, lfo, range: 0.1..0.9)
+  osc = osc.modulate(:duty, lfo, range: 0.1..0.9)
   
   Speaker.play(osc, volume: 0.4)
   puts "    Modulating 'duty' with 0.5Hz LFO for PWM effect"
@@ -164,7 +161,7 @@ showcase "Envelope-Modulated Sync Ratio (The 'Laser' Kick)" do
   
   # Modulate sync_ratio with the envelope
   # Range: 1.0 (at end of decay) to 12.0 (at peak of attack)
-  osc.modulate(:sync_ratio, env, range: 1.0..12.0)
+  osc = osc.modulate(:sync_ratio, env, range: 1.0..12.0)
   
   Speaker.play(osc, volume: 0.4)
   
@@ -184,25 +181,16 @@ showcase "Sustained PWM + Morphing (Dynamic Waveform Shaping)" do
   osc.window_alpha = 5.0
   osc.beta = 1.6
   
-  # Slow LFO for constant PWM motion
-  lfo = Phasor.new(0.3)
-  osc.modulate(:duty, lfo, range: 0.2..0.8)
+  # Constant PWM + Morphing driven by separate LFOs
+  lfo_pwm = Phasor.new(0.3)
+  lfo_morph = Phasor.new(0.2)
+  osc = osc.modulate(:duty, lfo_pwm, range: 0.2..0.8)
+           .modulate(:morph, lfo_morph, range: 0.0..1.0)
   
   Speaker.play(osc, volume: 0.35)
   
-  puts "    Starting with Saw (morph=0.0) + PWM"
-  osc.morph = 0.0
-  sleep 2.0
-  
-  puts "    Slowly Morphing to Square (morph=1.0) while PWM continues"
-  steps = 50
-  steps.times do |i|
-    osc.morph = i.to_f / steps
-    sleep 0.1
-  end
-  
-  puts "    Now at Pure Square + PWM"
-  sleep 2.0
+  puts "    PWM (0.3Hz) + Automatic Morphing (0.2Hz)"
+  sleep 8.0
   
   Speaker.stop
 end
@@ -215,11 +203,11 @@ showcase "Multi-LFO Modulation (Sync + Alpha Phasing)" do
   
   # Slow LFO for sync ratio sweep (slow "vocal" movement)
   slow_lfo = Phasor.new(0.2)
-  osc.modulate(:sync_ratio, slow_lfo, range: 1.0..5.0)
-  
   # Faster LFO for window alpha (rapid "texture" movement)
   fast_lfo = Phasor.new(1.0)
-  osc.modulate(:window_alpha, fast_lfo, range: 1.0..10.0)
+
+  osc = osc.modulate(:sync_ratio, slow_lfo, range: 1.0..5.0)
+           .modulate(:window_alpha, fast_lfo, range: 1.0..10.0)
   
   Speaker.play(osc, volume: 0.35)
   puts "    Modulating sync_ratio (0.2Hz) and window_alpha (4.0Hz)"

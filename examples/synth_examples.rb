@@ -238,19 +238,12 @@ v.osc.beta = 0.5
 v.cutoff = 8000
 v.res = 0.2
 
-# Play a low note and sweep the ratio
-v.play(:e2)
+# It's easily configurable! Let's make the sweep even slower:
+v.sync_env.decay = 5.0
 
-steps = 40
-duration = 2.0
-ratio_start = 1.0
-ratio_end = 8.0
-
-steps.times do |i|
-  # Classic hard sync sweep
-  v.osc.sync_ratio = ratio_start + (ratio_end - ratio_start) * (i.to_f / steps)
-  sleep duration / steps
-end
+# Play a low note/gate - the envelope now handles the ratio sweep automatically
+v.play(:c2)
+sleep 5.5
 
 sleep 0.5
 v.stop

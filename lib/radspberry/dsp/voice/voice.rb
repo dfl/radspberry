@@ -3,16 +3,22 @@
 module DSP
   class Voice < Generator
     attr_reader :osc, :filter, :amp_env, :filter_env
-    attr_accessor :filter_base, :filter_mod
+    attr_accessor :filter_base, :filter_mod, :osc_base, :osc_mod, :osc_mod_target
+    alias_method :mod_env, :filter_env
+    alias_method :sync_env, :filter_env
 
     def initialize(osc: SuperSaw, filter: ButterLP, amp_env: nil, filter_env: nil,
-                   filter_base: 200, filter_mod: 4000, &block)
+                   filter_base: 200, filter_mod: 4000,
+                   osc_base: 0.0, osc_mod: 0.0, osc_mod_target: nil, &block)
       @osc = osc.is_a?(Class) ? osc.new : osc
       @filter = filter.is_a?(Class) ? filter.new(1000) : filter
       @amp_env = amp_env || Env.adsr
       @filter_env = filter_env || Env.perc
       @filter_base = filter_base
       @filter_mod = filter_mod
+      @osc_base = osc_base
+      @osc_mod = osc_mod
+      @osc_mod_target = osc_mod_target
 
       block.call(self) if block
     end
@@ -75,9 +81,12 @@ module DSP
         osc: DualRPMOscillator,
         filter: ButterLP,
         amp_env: Env.adsr(attack: 0.005, decay: 0.3, sustain: 0.5, release: 0.2),
-        filter_env: Env.perc(attack: 0.01, decay: 0.5), # used for ratio sweep
+        filter_env: Env.perc(attack: 0.01, decay: 4.0), # used for ratio sweep
         filter_base: 1000,
-        filter_mod: 8000
+        filter_mod: 8000,
+        osc_base: 1.0,
+        osc_mod: 7.0,
+        osc_mod_target: :sync_ratio
       )
       v.play(note) if note
       v
@@ -170,6 +179,10 @@ module DSP
     def tick
       env_val = @filter_env.tick
       @filter.freq = @filter_base + env_val * @filter_mod
+
+      if @osc_mod_target && @osc.respond_to?("#{@osc_mod_target}=")
+        @osc.send("#{@osc_mod_target}=", @osc_base + env_val * @osc_mod)
+      end
 
       sample = @osc.tick
       sample = @filter.tick(sample)
