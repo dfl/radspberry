@@ -22,20 +22,24 @@ bass = [:c2, :c2, :g1, :f1].ring
 lead = Voice.lead
 sub  = Voice.acid
 
-Speaker.play(lead, volume: 0.2)
-Speaker.play(sub, volume: 0.3)
+# Mix voices together - Speaker.play replaces the current stream,
+# so we must combine them first!
+Speaker.play(lead + sub, volume: 0.3)
 
 # Reset global counters
 reset_tick
 
-8.times do |i|
+32.times do |i|
   # .tick increments the counter and returns the element at that index
-  lead.note_on(melody.tick)
+  note = melody.tick
+  lead.note_on(note)
   
-  # We can use named ticks to keep different parts in sync or independent
-  # Here we tick the bass every 4 melody steps
-  sub.note_on(bass.tick(:bass)) if i % 4 == 0
+  # Tick the bass every 4 melody steps
+  if i % 4 == 0
+    sub.note_on(bass.tick(:bass))
+  end
   
+  print "\r   Step: #{i+1}/32 | Note: #{note}   "
   sleep 0.25.beats
 end
 
@@ -54,9 +58,10 @@ puts "   Pattern: #{kicks.to_a.map{|b| b ? 'X' : '.'}.join(' ')}"
 kick = Voice.pluck
 Speaker.play(kick, volume: 0.4)
 
-16.times do
+32.times do |i|
   # tick the kick pattern
   kick.note_on(:c2) if kicks.tick(:kick)
+  print "\r   Step: #{i+1}/32 | #{kicks.look(:kick) ? 'KICK' : '    '}    "
   sleep 0.25.beats
 end
 
@@ -75,13 +80,14 @@ scale_notes = :c4.scale(:minor_pentatonic).ring
 pluck = Voice.pluck
 Speaker.play(pluck, volume: 0.3)
 
-16.times do |i|
+32.times do |i|
   # Every 4th beat, choose a random note from the scale
-  if i % 4 == 0
+  if i % 8 == 0
     pluck.note_on(scale_notes.choose)
   else
     pluck.note_on(pitches.tick(:pitches))
   end
+  print "\r   Step: #{i+1}/32              "
   sleep 0.25.beats
 end
 
@@ -101,8 +107,10 @@ puts "   Transformed (mirror + shuffle): #{transformed.inspect}"
 lead.play(:c4) # Just to hear the synth
 Speaker.play(lead, volume: 0.2)
 
-8.times do
-  lead.note_on(transformed.tick(:trans))
+32.times do |i|
+  note = transformed.tick(:trans)
+  lead.note_on(note)
+  print "\r   Step: #{i+1}/32 | Note: #{note}   "
   sleep 0.25.beats
 end
 
