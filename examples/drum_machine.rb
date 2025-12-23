@@ -4,89 +4,114 @@ include DSP
 
 puts <<~BANNER
   ╔════════════════════════════════════════════════════════════╗
-  ║            RADSPBERRY DRUM MACHINE                         ║
-  ║     Demonstrating Sample Playback and Live Loops           ║
+  ║            RADSPBERRY 808 DRUM MACHINE                     ║
+  ║      Demonstrating DSP::Instruments::DrumSynth             ║
   ╚════════════════════════════════════════════════════════════╝
 BANNER
 
-# Initialize the global sampler mixer
-# This allows 'sample' commands to be additive
-# We rely on the mix below to play it.
+# 1. Instantiate Instruments
+kick      = Instruments::DrumSynth.kick
+snare     = Instruments::DrumSynth.snare
+hat_close = Instruments::DrumSynth.hi_hat_closed
+hat_open  = Instruments::DrumSynth.hi_hat_open
+cowbell   = Instruments::DrumSynth.cowbell
+cymbal    = Instruments::DrumSynth.cymbal
+clap      = Instruments::DrumSynth.clap
+maraca    = Instruments::DrumSynth.maraca
+tom_low   = Instruments::DrumSynth.tom(100)
+tom_high  = Instruments::DrumSynth.tom(160)
 
-# We can also mix in some synths
-bass = Voice.acid
-bass.attack = 0.02
-bass.decay = 0.3
-bass.sustain = 0.5
-bass.release = 0.2
-bass.cutoff = 3000   # Open enough to hear, low enough for bass
-bass.resonance = 0.3 # Some acid squelch
+# 2. Mix them together
+# We use a limiter or just simpler gain staging to avoid clipping
+drums = kick * 0.8 + 
+        snare * 0.7 + 
+        hat_close * 0.4 + 
+        hat_open * 0.4 + 
+        cowbell * 0.5 + 
+        cymbal * 0.4 + 
+        tom_low * 0.6 + 
+        tom_high * 0.6 +
+        clap * 0.6 + maraca * 0.3
 
-# Mix Drums (via sampler_mixer) and Bass
-Speaker.play(DSP.sampler_mixer * 0.8 + bass * 0.4, volume: 1.0)
+# 3. Start Audio Engine
+Speaker.play(drums, volume: 1.0)
+Clock.bpm = 120 
 
-# Set the tempo to a driving 130 BPM
-Clock.bpm = 130
+# 4. Sequencer Loop
+live_loop :drum_machine do
+  # Patterns (16 steps)
+  
+  # Kick: 
+  k_pat = seq(0b1000_0010_1000_0000) 
+  
+  # Snare: 
+  s_pat = seq(0b0000_1000_0000_1000)
+  
+  # Hats: 
+  h_pat = seq(0b1111_1111_1111_1111)
+  
+  # Open Hat
+  o_pat = seq(0b0010_0000_0010_0000)
 
-# Master Sequencer Loop
-# Controls all instruments in a single thread to guarantee perfect sync.
-live_loop :sequencer do
-  # Patterns
-  # Patterns
-  # Kick: "x.......xx......" -> 1000000011000000 -> 0x80C0
-  k_pat = seq(0x80C0) 
+  # Cowbell
+  c_pat = seq(0b0000_0000_0011_0100)
   
-  # Snare: "....x.......x..." -> 0000100000001000 -> 0x0808
-  s_pat = seq(0x0808)
-  
-  # Hats:  "x.x.x.x.x.x.x.x." -> 1010101010101010 -> 0xAAAA
-  h_pat = seq(0xAAAA)
-  
-  # Bass:  "x.x.x.x.x.x....." -> 1010101010100000 -> 0xAAA0
-  b_pat = seq(0xAAA0)
-  
-  # Progression
-  progression = ring(:a1, :a1, :g1, :g1, :f1, :f1, :g1, :g1)
-  root = progression.tick(:prog)
-  
+  # Toms
+  t_pat = seq(0b0000_0001_0000_1000)
+
+  # Clap
+  cl_pat = seq(0b0000_1000_0000_1000)
+
+  # Maracas
+  m_pat = seq(0b1101_1010_1111_0100)
+
+  # Cymbal (Crash at start of bar)
+  y_pat = seq(0b1000_0000_0000_0000)
+
   16.times do
-    # Shared step counter for this beat
     step = tick
-    
-    # 1. Kick
-    sample :kick, amp: 1.5 if k_pat[step]
-    
-    # 2. Snare
-    sample :snare, amp: 1.2 if s_pat[step]
-    
-    # 3. Hats
-    if h_pat[step]
-      vol = (step % 4 == 0) ? 0.5 : 0.25
-      sample :hihat, rate: 1.1, amp: vol
+
+    # Kick
+    kick.play(50) if k_pat[step]
+
+    # Snare
+    snare.play if s_pat[step]
+
+    # Hats (Exclusive)
+    if o_pat[step]
+      hat_open.play
+    elsif h_pat[step]
+      hat_close.play
     end
-    
-    # 4. Bass
-    if b_pat[step]
-      bass.note_on(root)
-    else
-      bass.note_off
+
+    # Cowbell
+    cowbell.play if c_pat[step]
+
+    # Toms
+    if t_pat[step]
+      (step % 2 == 0 ? tom_low : tom_high).play
     end
-    
-    # Wait for next step
+
+    # Cymbal
+    cymbal.play if y_pat[step]
+
+    # Clap
+    clap.play   if cl_pat[step]
+
+    # Maraca
+    maraca.play if m_pat[step]
+
     sleep 0.25.beat
   end
-  
-  # Ensure clean bass release at end of bar
-  bass.note_off
 end
 
-puts "Drums and Bass running... Press Ctrl+C to stop."
+puts "808 Logic initialized. Press Ctrl+C to stop."
 
 begin
   loop { sleep 1 }
 rescue Interrupt
   puts "\nStopping..."
 ensure
-  DSP::DSL::LiveLoop.stop_all
+  DSL::LiveLoop.stop_all
   Speaker.stop
 end

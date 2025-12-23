@@ -38,6 +38,7 @@ require_relative './radspberry/dsp/native_speaker'
 
 # Oscillators
 require_relative './radspberry/dsp/oscillator'
+require_relative './radspberry/dsp/twin_t_oscillator'
 require_relative './radspberry/dsp/sampler'
 require_relative './radspberry/dsp/super_saw'
 require_relative './radspberry/dsp/dual_rpm_oscillator'
@@ -80,3 +81,6 @@ require_relative './radspberry/dsp/sequencer/pattern'
 require_relative './radspberry/dsp/voice/voice'
 require_relative './radspberry/dsp/voice/sequenced'
 require_relative './radspberry/dsp/synth'
+
+# Instruments
+require_relative './radspberry/instruments/drum_synth'

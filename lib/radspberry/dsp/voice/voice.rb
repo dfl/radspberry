@@ -101,7 +101,7 @@ module DSP
       @freq
     end
 
-    def play(note, duration = nil)
+    def play(note = nil, duration = nil)
       note_on(note)
       if duration
         sleep duration
@@ -113,8 +113,8 @@ module DSP
       note_off
     end
 
-    def note_on(note)
-      self.freq = note
+    def note_on(note = nil)
+      self.freq = note if note
       @amp_env.gate_on!
       @filter_env.trigger!
     end
