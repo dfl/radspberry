@@ -8,3 +8,4 @@ Gemfile.lock
 *.dSYM/
 ext/radspberry_audio/Makefile
 ext/radspberry_audio/mkmf.log
+.agent/

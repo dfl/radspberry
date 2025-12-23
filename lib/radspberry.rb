@@ -42,6 +42,7 @@ require_relative './radspberry/dsp/oversampling'
 require_relative './radspberry/dsp/fft'
 
 require_relative './radspberry/dsp/clock'
+require_relative './radspberry/dsp/dsl'
 require_relative './radspberry/dsp/refinements'
 
 # Filters

@@ -157,4 +157,64 @@ class TestApiLogic < Minitest::Test
       assert_in_delta 110.0, actual, 0.001, msg
     end
   end
+
+  # =========================================================================
+  # 6. Sonic Pi DSL Features
+  # =========================================================================
+  def test_rings
+    r = ring(1, 2, 3)
+    assert_instance_of DSP::DSL::Ring, r
+    assert_equal 1, r[0]
+    assert_equal 2, r[1]
+    assert_equal 3, r[2]
+    assert_equal 1, r[3], "Ring should wrap around"
+    assert_equal 2, r[4], "Ring should wrap around"
+    assert_equal 3, r[-1]
+    assert_equal 2, r[-2]
+  end
+
+  def test_tick_and_look
+    reset_tick
+    assert_equal 0, tick
+    assert_equal 1, tick
+    assert_equal 1, look
+    assert_equal 2, tick
+    
+    # Named ticks
+    assert_equal 0, tick(:foo)
+    assert_equal 0, tick(:bar)
+    assert_equal 1, tick(:foo)
+    assert_equal 3, tick # default still at 3
+  end
+
+  def test_ring_ticking
+    r = ring(10, 20, 30)
+    reset_tick(:r)
+    assert_equal 10, r.tick(:r)
+    assert_equal 20, r.tick(:r)
+    assert_equal 30, r.tick(:r)
+    assert_equal 10, r.tick(:r)
+  end
+
+  def test_spread
+    # 3 pulses in 8 steps: [T, F, F, T, F, F, T, F]
+    s = spread(3, 8)
+    assert_equal [true, false, false, true, false, false, true, false], s.to_a
+    
+    # Empty/Full cases
+    assert_equal [false, false], spread(0, 2).to_a
+    assert_equal [true, true], spread(2, 2).to_a
+  end
+
+  def test_knit
+    k = knit(:a, 2, :b, 1)
+    assert_equal [:a, :a, :b], k.to_a
+    assert_instance_of DSP::DSL::Ring, k
+  end
+
+  def test_pattern_helpers
+    assert_respond_to self, :choose
+    assert_respond_to self, :one_in
+    assert_respond_to self, :dice
+  end
 end
