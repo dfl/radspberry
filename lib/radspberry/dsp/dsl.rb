@@ -1,12 +1,14 @@
 require_relative 'dsl/ring'
 require_relative 'dsl/patterns'
 require_relative 'dsl/live_loop'
+require_relative 'dsl/samples'
 
 module DSP
   module DSL
     include State
     include Patterns
     include LiveLoop
+    include Samples
 
     # Extension methods for Array and Ring
     module Extensions
@@ -38,6 +40,7 @@ module Kernel
   include DSP::DSL::State
   include DSP::DSL::Patterns
   include DSP::DSL::LiveLoop
+  include DSP::DSL::Samples
   
   def ring(*args)
     DSP::DSL::Ring.new(args)

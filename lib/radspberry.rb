@@ -25,10 +25,20 @@ require_relative './radspberry/dsp/speaker'
 # Initialize sample rate from audio device before creating DSP objects
 DSP.init_sample_rate_from_device!
 
+module DSP
+  def self.sampler_mixer
+    @sampler_mixer ||= DynamicMixer.new
+  end
+end
+
+# Ensure the sampler_mixer is playing if we want additive playback by default
+# Or we can just let the DSL handles it.
+
 require_relative './radspberry/dsp/native_speaker'
 
 # Oscillators
 require_relative './radspberry/dsp/oscillator'
+require_relative './radspberry/dsp/sampler'
 require_relative './radspberry/dsp/super_saw'
 require_relative './radspberry/dsp/dual_rpm_oscillator'
 require_relative './radspberry/dsp/naive_rpm_sync'

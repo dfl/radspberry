@@ -62,7 +62,7 @@ module DSP
 
   class Base
     # Try to set a parameter on this object.
-    # Returns true if the parameter was set, false otherwise.
+    # Returns true
     def broadcast_param(key, value)
       method_name = "#{key}="
       if respond_to?(method_name)
@@ -300,6 +300,49 @@ module DSP
     end
   end
 
+
+  # Additive mixer for dynamic voice management
+  class DynamicMixer < Generator
+    attr_accessor :gain
+
+    def initialize(gain = 0.5)
+      super()
+      @lock = Monitor.new
+      @voices = []
+      @gain = gain
+    end
+
+    def add(voice)
+      @lock.synchronize { @voices << voice }
+      voice
+    end
+
+    def remove(voice)
+      @lock.synchronize { @voices.delete(voice) }
+    end
+
+    def clear!
+      @lock.synchronize { @voices.clear }
+    end
+
+    def tick
+      sum = 0.0
+      @lock.synchronize do
+        @voices.delete_if { |v| v.respond_to?(:finished?) && v.finished? }
+        @voices.each { |v| sum += v.tick }
+      end
+      sum * @gain
+    end
+
+    def ticks(n)
+      @lock.synchronize do
+        # For simplicity, just use tick n times. 
+        # In a high-perf scenario, we'd batch this.
+        Array.new(n) { tick }.to_v
+      end
+    end
+  end
+  
   class Mixer < Generator
     def self.[] *mix
       new mix

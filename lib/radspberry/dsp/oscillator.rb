@@ -45,7 +45,7 @@ module DSP
     end
   
     def tick
-      FACTOR[ tock <= @duty ]
+      FACTOR[ tock <= duty ]
     end
   end
 
