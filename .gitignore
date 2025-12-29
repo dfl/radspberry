@@ -9,3 +9,4 @@ Gemfile.lock
 ext/radspberry_audio/Makefile
 ext/radspberry_audio/mkmf.log
 .agent/
+test/output/
