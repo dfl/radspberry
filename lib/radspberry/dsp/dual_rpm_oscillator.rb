@@ -20,31 +20,106 @@ module DSP
     param_accessor :fm_linear_amt,   :default => 0.5,   :range => (0.0..1.0) # 0 = PM, 1 = Linear FM
     param_accessor :fm_feedback,     :default => 0.0,   :range => (-2.0..2.0)
 
+    # Inharmonicity: curvature-based frequency modulation (piano-like stretched partials)
+    param_accessor :inharmonicity,   :default => 0.0,   :range => (0.0..0.1), :after_set => proc{update_inharmonicity}
+
     WINDOW_SIZE = 1024
 
-    class RPM
+    # Inner RPM core - single mode (saw or square) with own feedback
+    class RPMCore
       include DSP::Math
-      attr_accessor :beta, :state, :last_out, :morph
+      attr_accessor :beta, :inharmonicity
+      attr_reader :freq_mult, :last_out
 
-      RPM_CUTOFF = 5000.0  # Fixed cutoff for sample-rate independence
+      POWER_ALPHA = 0.001
+      CURV_ALPHA = 0.001
 
-      def initialize(beta = 1.5, morph = 0.0)
+      def initialize(mode, beta = -1.5)
+        @mode = mode  # :saw or :square
         @beta = beta
-        @morph = morph
-        @alpha = 1.0 - ::Math.exp(-DSP::TWO_PI * RPM_CUTOFF * DSP::Base.inv_srate)
+        @inharmonicity = 0.0
         clear!
       end
 
       def clear!
-        @state = @last_out = 0.0
+        @last_out = 0.0
+        @last_out_prev = 0.0
+        @last_out_prev2 = 0.0
+        @rms_sq = 0.5
+        @curv_rms = 0.01
+        @freq_mult = 1.0
       end
 
       def process(phase)
-        fb_signal = (@last_out * @last_out - @last_out) * @morph + @last_out
-        @state += @alpha * (fb_signal - @state)  # one-pole averager (5kHz cutoff)
+        # Inharmonicity
+        curv = @last_out - 2.0 * @last_out_prev + @last_out_prev2
+        @curv_rms += CURV_ALPHA * (curv * curv - @curv_rms)
+        curv_norm = curv / ::Math.sqrt([@curv_rms, 1e-6].max)
+        @freq_mult = 1.0 + @inharmonicity * curv_norm * curv_norm
 
-        eff_beta = @beta * (1.0 - 2.0 * @morph)
-        @last_out = sin(DSP::TWO_PI * phase + eff_beta * @state)
+        y = (@mode == :saw) ? process_saw(phase) : process_square(phase)
+
+        @last_out_prev2 = @last_out_prev
+        @last_out_prev = @last_out
+        @last_out = y
+        y
+      end
+
+      private
+
+      def process_saw(phase)
+        y_avg = 0.5 * (@last_out + @last_out_prev)
+        y_sq = @last_out * @last_out
+        @rms_sq += POWER_ALPHA * (y_sq - @rms_sq)
+        rms = ::Math.sqrt([@rms_sq, 0.01].max)
+        u = -@beta * 0.5 * (y_avg / rms)
+        sin(DSP::TWO_PI * phase + u)
+      end
+
+      def process_square(phase)
+        ysq_avg = 0.5 * (@last_out * @last_out + @last_out_prev * @last_out_prev)
+        @rms_sq += POWER_ALPHA * (ysq_avg - @rms_sq)
+        u = -@beta * (ysq_avg / [@rms_sq, 0.01].max * 0.5 - 0.5)
+        sin(DSP::TWO_PI * phase + u)
+      end
+    end
+
+    # Dual RPM with morphing - holds both saw and square oscillators
+    class RPMDual
+      attr_accessor :beta, :morph, :inharmonicity
+      attr_reader :freq_mult, :last_out
+
+      def initialize(beta = -1.5)
+        @beta = beta
+        @morph = 0.0
+        @inharmonicity = 0.0
+        @saw = RPMCore.new(:saw, @beta)
+        @sqr = RPMCore.new(:square, @beta)
+      end
+
+      def clear!
+        @saw.clear!
+        @sqr.clear!
+      end
+
+      def beta=(val)
+        @beta = val
+        @saw.beta = @beta
+        @sqr.beta = @beta
+      end
+
+      def inharmonicity=(val)
+        @inharmonicity = val
+        @saw.inharmonicity = val
+        @sqr.inharmonicity = val
+      end
+
+      def process(phase)
+        y_saw = @saw.process(phase)
+        y_sqr = @sqr.process(phase)
+        @last_out = (1.0 - @morph) * y_saw + @morph * y_sqr
+        @freq_mult = @saw.freq_mult  # Use saw's freq_mult for inharmonicity
+        @last_out
       end
     end
 
@@ -58,13 +133,14 @@ module DSP
       @fm_index = 0.0
       @fm_linear_amt = 0.5
       @fm_feedback = 0.0
+      @inharmonicity = 0.0
 
       super freq
-      
-      @master_osc = RPM.new(@beta, @morph)
-      @slave_osc1 = RPM.new(@beta, @morph)
-      @slave_osc2 = RPM.new(@beta, @morph)
-      @fm_mod_osc = RPM.new(0.0)
+
+      @master_osc = RPMDual.new(@beta)
+      @slave_osc1 = RPMDual.new(@beta)
+      @slave_osc2 = RPMDual.new(@beta)
+      @fm_mod_osc = RPMCore.new(:saw, 0.0)  # FM modulator doesn't need morph
 
       @master_phase = 0.0
       @fm_mod_phase = 0.0
@@ -150,8 +226,8 @@ module DSP
 
       output = 0.5 * (@last_slave_out1 * w1 + @last_slave_out2 * w2)
 
-      # 8. Advance master phase
-      @master_phase += @master_inc
+      # 8. Advance master phase (with inharmonicity from master oscillator)
+      @master_phase += @master_inc * @master_osc.freq_mult
       @master_phase -= 1.0 if @master_phase >= 1.0
 
       output
@@ -173,6 +249,12 @@ module DSP
       @master_osc.morph = @morph
       @slave_osc1.morph = @morph
       @slave_osc2.morph = @morph
+    end
+
+    def update_inharmonicity
+      @master_osc.inharmonicity = @inharmonicity
+      @slave_osc1.inharmonicity = @inharmonicity
+      @slave_osc2.inharmonicity = @inharmonicity
     end
 
     def generate_window
