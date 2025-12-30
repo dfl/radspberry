@@ -13,7 +13,7 @@ module DSP
 
     param_accessor :beta,          :default => 1.5,   :range => (0.0..5.0)
     param_accessor :mode,          :default => :saw   # :saw or :square
-    param_accessor :inharmonicity, :default => 0.0,   :range => (0.0..0.1)
+    param_accessor :inharmonicity, :default => 0.0,   :range => (-0.5..0.5)
 
     POWER_ALPHA = 0.001   # Power tracking time constant
     CURV_ALPHA  = 0.001   # Curvature RMS tracking time constant
@@ -36,13 +36,14 @@ module DSP
     end
 
     def tick
-      # Inharmonicity: curvature-based frequency modulation
+      # k: curvature-based frequency modulation
+      # tanh soft-limits normalized curvature to preserve spectral slope
       curv = @last_out - 2.0 * @last_out_prev + @last_out_prev2
       @curv_rms += CURV_ALPHA * (curv * curv - @curv_rms)
       curv_norm = curv / ::Math.sqrt([@curv_rms, 1e-6].max)
-      freq_mult = 1.0 + @inharmonicity * curv_norm * curv_norm
+      freq_mult = 1.0 + inharmonicity * ::Math.tanh(curv_norm).abs
 
-      # Advance phase with inharmonicity
+      # Advance phase with k
       @phase += @freq * inv_srate * freq_mult
       @phase -= 1.0 if @phase >= 1.0
 

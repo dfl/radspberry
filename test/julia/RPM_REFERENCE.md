@@ -11,7 +11,6 @@ function rpm_saw(omega, beta, N; alpha=0.001, k=0.0)
     y = zeros(Float64, N)
     rms_sq = 0.5
     curv_rms = 0.01
-    curv_avg = 0.0
     phase = 0.0
 
     for n in 2:N
@@ -21,11 +20,7 @@ function rpm_saw(omega, beta, N; alpha=0.001, k=0.0)
         curv = y[n1] - 2*y[n2] + y[n3]
         curv_rms += 0.001 * (curv * curv - curv_rms)
         curv_norm = curv / sqrt(max(curv_rms, 1e-6))
-        curv_contrib = abs(tanh(curv_norm))
-        curv_avg += 0.001 * (curv_contrib - curv_avg)
-
-        # Zero-mean phase modulation keeps fundamental at f0
-        phase += omega * (1.0 + k * (curv_contrib - curv_avg))
+        phase += omega * (1.0 + k * abs(tanh(curv_norm)))
 
         # Linear feedback (2-point TPT average)
         y_avg = 0.5 * (y[n1] + y[n2])
@@ -47,21 +42,17 @@ function rpm_sqr(omega, beta, N; alpha=0.001, k=0.0)
     y = zeros(Float64, N)
     rms_sq = 0.5
     curv_rms = 0.01
-    curv_avg = 0.0
     phase = 0.0
 
     for n in 2:N
         n1, n2, n3 = n-1, max(n-2, 1), max(n-3, 1)
 
         # Inharmonicity: curvature-based frequency modulation
+        # tanh soft-limiting preserves spectral slope at high k
         curv = y[n1] - 2*y[n2] + y[n3]
         curv_rms += 0.001 * (curv * curv - curv_rms)
         curv_norm = curv / sqrt(max(curv_rms, 1e-6))
-        curv_contrib = abs(tanh(curv_norm))
-        curv_avg += 0.001 * (curv_contrib - curv_avg)
-
-        # Zero-mean phase modulation keeps fundamental at f0
-        phase += omega * (1.0 + k * (curv_contrib - curv_avg))
+        phase += omega * (1.0 + k * abs(tanh(curv_norm)))
 
         # Squared feedback (2-point TPT average)
         ysq_avg = 0.5 * (y[n1]^2 + y[n2]^2)
@@ -123,16 +114,35 @@ Curvature (2nd derivative) scales as h² for harmonic h, so higher harmonics exp
 
 **Why `tanh(curv_norm)`:** The `tanh` soft-limits the normalized curvature to ±1, preventing phase runaway at high k values. Without limiting, large k values cause severe spectral rolloff (up to 18 dB/oct loss for saw) by disrupting phase coherence. With `tanh`, the spectral slope stays within ±0.2 dB of the k=0 reference across the full ±0.5 range.
 
-**Zero-mean modulation:** The inharmonicity uses zero-mean modulation to keep the fundamental at f0:
+### F0 Drift and Compensation
+
+Inharmonicity causes a slight f0 drift proportional to k:
 
 ```
-curv_avg += 0.001 * (curv_contrib - curv_avg)
-phase += omega * (1.0 + k * (curv_contrib - curv_avg))
+drift ≈ f0 * k * C   where C ≈ 0.07 (saw) or 0.13 (sqr)
 ```
 
-- `curv_contrib - curv_avg` has zero mean, so average phase advance equals omega
-- Fundamental stays at f0 regardless of k value
-- Different k values may have different phase relationships (this is expected)
+For f0=220Hz, k=-0.3: drift ≈ -4.6 Hz (~37 cents flat).
+
+**Important:** Compensating omega directly (e.g., `omega / (1 + k*C)`) kills the inharmonicity effect due to the nonlinear feedback dynamics. Do NOT use internal compensation.
+
+**Solution: SSB frequency shift via Hilbert transform.** Apply post-processing to shift the entire spectrum uniformly, which corrects f0 while preserving inharmonic relationships:
+
+```julia
+using DSP  # provides hilbert()
+
+function freq_shift_ssb(x, shift_hz, fs)
+    analytic = hilbert(x)  # Returns complex analytic signal
+    t = (0:length(x)-1) / fs
+    real.(analytic .* exp.(im * 2π * shift_hz .* t))
+end
+
+# Usage: shift up by -drift to correct
+correction = -f0 * k * 0.07  # for saw (use 0.13 for square)
+y_corrected = freq_shift_ssb(y, correction, fs)
+```
+
+**Real-time implementation:** Use IIR allpass filter pairs to approximate the Hilbert transform. Typical latency: 0.5-2ms depending on filter order and accuracy requirements.
 
 ## Signal Flow
 
@@ -150,11 +160,10 @@ phase += omega * (1.0 + k * (curv_contrib - curv_avg))
                                        │
                                        ▼
 ┌─────────┐    ┌───────────────────────────────────────────────────┐    ┌─────────┐
-│  omega  │───▶│  phase_base += omega                               │───▶│  sin()  │───▶ y[n]
-└─────────┘    │  phase_mod += omega * k * (|tanh(curv)| - avg)     │    └────┬────┘
-               └───────────────────────────────────────────────────┘         │
-                                                              │
-                        ┌─────────────────────────────────────┘
+│  omega  │───▶│  phase += omega * (1 + k * |tanh(curv_norm)|)     │───▶│  sin()  │───▶ y[n]
+└─────────┘    └───────────────────────────────────────────────────┘    └────┬────┘
+                                                                             │
+                        ┌────────────────────────────────────────────────────┘
                         │
                         ▼
              ┌──────────────────────┐
