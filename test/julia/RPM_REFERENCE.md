@@ -17,10 +17,11 @@ function rpm_saw(omega, beta, N; alpha=0.001, k=0.0)
         n1, n2, n3 = n-1, max(n-2, 1), max(n-3, 1)
 
         # Inharmonicity: curvature-based frequency modulation
+        # Uses abs(curv_norm) to preserve spectral slope
         curv = y[n1] - 2*y[n2] + y[n3]
         curv_rms += 0.001 * (curv * curv - curv_rms)
         curv_norm = curv / sqrt(max(curv_rms, 1e-6))
-        phase += omega * (1.0 + k * curv_norm * curv_norm)
+        phase += omega * (1.0 + k * abs(curv_norm))
 
         # Linear feedback (2-point TPT average)
         y_avg = 0.5 * (y[n1] + y[n2])
@@ -52,10 +53,11 @@ function rpm_sqr(omega, beta, N; alpha=0.001, k=0.0)
         n1, n2, n3 = n-1, max(n-2, 1), max(n-3, 1)
 
         # Inharmonicity: curvature-based frequency modulation
+        # Uses abs(curv_norm) to preserve spectral slope
         curv = y[n1] - 2*y[n2] + y[n3]
         curv_rms += 0.001 * (curv * curv - curv_rms)
         curv_norm = curv / sqrt(max(curv_rms, 1e-6))
-        phase += omega * (1.0 + k * curv_norm * curv_norm)
+        phase += omega * (1.0 + k * abs(curv_norm))
 
         # Squared feedback (2-point TPT average)
         ysq_avg = 0.5 * (y[n1]^2 + y[n2]^2)
@@ -119,6 +121,8 @@ The `k` parameter controls partial stretching via curvature-based frequency modu
 
 Curvature (2nd derivative) scales as h² for harmonic h, so higher harmonics experience more frequency shift.
 
+**Why `abs(curv_norm)` instead of `curv_norm²`:** Using the absolute value (linear scaling) instead of squared preserves the spectral slope of the waveform. Squared curvature causes excessive high-frequency rolloff (~9 dB/oct loss) by disrupting the phase coherence needed for harmonic buildup. The absolute value provides inharmonic stretching while maintaining the characteristic brightness of saw/square waves.
+
 ## Signal Flow
 
 ```
@@ -135,7 +139,7 @@ Curvature (2nd derivative) scales as h² for harmonic h, so higher harmonics exp
                                        │
                                        ▼
 ┌─────────┐    ┌─────────────────────────────────────┐    ┌─────────┐
-│  omega  │───▶│  phase += omega * (1 + k * curv²)   │───▶│  sin()  │───▶ y[n]
+│  omega  │───▶│  phase += omega * (1 + k * |curv|)  │───▶│  sin()  │───▶ y[n]
 └─────────┘    └─────────────────────────────────────┘    └────┬────┘
                                                               │
                         ┌─────────────────────────────────────┘

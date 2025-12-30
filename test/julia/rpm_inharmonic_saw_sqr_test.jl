@@ -18,10 +18,11 @@ function rpm_saw(omega, beta, N; alpha=0.001, k=0.0)
         n1, n2, n3 = n-1, max(n-2, 1), max(n-3, 1)
 
         # Inharmonicity: curvature-based frequency modulation
+        # Uses abs(curv_norm) instead of curv_norm² to preserve spectral slope
         curv = y[n1] - 2*y[n2] + y[n3]
         curv_rms += 0.001 * (curv * curv - curv_rms)
         curv_norm = curv / sqrt(max(curv_rms, 1e-6))
-        phase += omega * (1.0 + k * curv_norm * curv_norm)
+        phase += omega * (1.0 + k * abs(curv_norm))
 
         # Linear feedback (2-point TPT average)
         y_avg = 0.5 * (y[n1] + y[n2])
@@ -50,10 +51,11 @@ function rpm_sqr(omega, beta, N; alpha=0.001, k=0.0)
         n1, n2, n3 = n-1, max(n-2, 1), max(n-3, 1)
 
         # Inharmonicity: curvature-based frequency modulation
+        # Uses abs(curv_norm) instead of curv_norm² to preserve spectral slope
         curv = y[n1] - 2*y[n2] + y[n3]
         curv_rms += 0.001 * (curv * curv - curv_rms)
         curv_norm = curv / sqrt(max(curv_rms, 1e-6))
-        phase += omega * (1.0 + k * curv_norm * curv_norm)
+        phase += omega * (1.0 + k * abs(curv_norm))
 
         # Squared feedback (2-point TPT average)
         ysq_avg = 0.5 * (y[n1]^2 + y[n2]^2)
@@ -77,28 +79,28 @@ function mag_spectrum(x)
 end
 
 # Test with inharmonicity
-beta = 1.5
-k_values = [0.0, 0.02, 0.05, -0.02]
+beta = 2.0
+# k_values = [0.0, 0.02, 0.05, -0.02]
 
-println("Testing RPM Saw/Square with Inharmonicity (canonical implementations)")
-println("f0 = $f0 Hz, beta = $beta\n")
+# println("Testing RPM Saw/Square with Inharmonicity (canonical implementations)")
+# println("f0 = $f0 Hz, beta = $beta\n")
 
-for k in k_values
-    y_saw = rpm_saw(omega, beta, N; k=k)[discard:end]
-    y_sqr = rpm_sqr(omega, beta, N; k=k)[discard:end]
+# for k in k_values
+#     y_saw = rpm_saw(omega, beta, N; k=k)[discard:end]
+#     y_sqr = rpm_sqr(omega, beta, N; k=k)[discard:end]
 
-    spec_saw = mag_spectrum(y_saw)
-    spec_sqr = mag_spectrum(y_sqr)
+#     spec_saw = mag_spectrum(y_saw)
+#     spec_sqr = mag_spectrum(y_sqr)
 
-    saw_harmonics = sum(20 .* log10.(spec_saw .+ 1e-9) .> -40)
-    sqr_harmonics = sum(20 .* log10.(spec_sqr .+ 1e-9) .> -40)
+#     saw_harmonics = sum(20 .* log10.(spec_saw .+ 1e-9) .> -40)
+#     sqr_harmonics = sum(20 .* log10.(spec_sqr .+ 1e-9) .> -40)
 
-    k_label = k == 0.0 ? "harmonic" : (k > 0 ? "tight/sharp" : "loose/flat")
-    println("k = $k ($k_label): saw harmonics = $saw_harmonics, sqr harmonics = $sqr_harmonics")
-end
+#     k_label = k == 0.0 ? "harmonic" : (k > 0 ? "tight/sharp" : "loose/flat")
+#     println("k = $k ($k_label): saw harmonics = $saw_harmonics, sqr harmonics = $sqr_harmonics")
+# end
 
 # Generate comparison plots: harmonic vs inharmonic
-k_inharm = -0.03
+k_inharm = 0.2
 
 y_saw_harm = rpm_saw(omega, beta, N; k=0.0)[discard:end]
 y_saw_inharm = rpm_saw(omega, beta, N; k=k_inharm)[discard:end]
