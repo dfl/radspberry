@@ -2,7 +2,7 @@ using DSP, FFTW, Plots
 gr()
 
 fs = 48000.0
-f0 = 110.0
+f0 = 220.0
 omega = 2π * f0 / fs
 N = 8192
 discard = 2048
@@ -12,26 +12,26 @@ function rpm_saw(omega, beta, N; alpha=0.001, k=0.0)
     y = zeros(Float64, N)
     rms_sq = 0.5
     curv_rms = 0.01
+    curv_avg = 0.0
     phase = 0.0
 
     for n in 2:N
         n1, n2, n3 = n-1, max(n-2, 1), max(n-3, 1)
 
         # Inharmonicity: curvature-based frequency modulation
-        # Uses tanh soft-limiting to preserve spectral slope at high k
         curv = y[n1] - 2*y[n2] + y[n3]
         curv_rms += 0.001 * (curv * curv - curv_rms)
         curv_norm = curv / sqrt(max(curv_rms, 1e-6))
-        phase += omega * (1.0 + k * abs(tanh(curv_norm)))
+        curv_contrib = abs(tanh(curv_norm))
+        curv_avg += 0.001 * (curv_contrib - curv_avg)
+
+        # Zero-mean phase modulation keeps fundamental at f0
+        phase += omega * (1.0 + k * (curv_contrib - curv_avg))
 
         # Linear feedback (2-point TPT average)
         y_avg = 0.5 * (y[n1] + y[n2])
-
-        # Track power using single sample
         y_sq = y[n1] * y[n1]
         rms_sq += alpha * (y_sq - rms_sq)
-
-        # RMS-normalized, scaled by 0.5, negated
         rms = sqrt(max(rms_sq, 0.01))
         u = -beta * 0.5 * (y_avg / rms)
 
@@ -45,25 +45,25 @@ function rpm_sqr(omega, beta, N; alpha=0.001, k=0.0)
     y = zeros(Float64, N)
     rms_sq = 0.5
     curv_rms = 0.01
+    curv_avg = 0.0
     phase = 0.0
 
     for n in 2:N
         n1, n2, n3 = n-1, max(n-2, 1), max(n-3, 1)
 
         # Inharmonicity: curvature-based frequency modulation
-        # Uses tanh soft-limiting to preserve spectral slope at high k
         curv = y[n1] - 2*y[n2] + y[n3]
         curv_rms += 0.001 * (curv * curv - curv_rms)
         curv_norm = curv / sqrt(max(curv_rms, 1e-6))
-        phase += omega * (1.0 + k * abs(tanh(curv_norm)))
+        curv_contrib = abs(tanh(curv_norm))
+        curv_avg += 0.001 * (curv_contrib - curv_avg)
+
+        # Zero-mean phase modulation keeps fundamental at f0
+        phase += omega * (1.0 + k * (curv_contrib - curv_avg))
 
         # Squared feedback (2-point TPT average)
         ysq_avg = 0.5 * (y[n1]^2 + y[n2]^2)
-
-        # Track power using ysq_avg
         rms_sq += alpha * (ysq_avg - rms_sq)
-
-        # Power-normalized, centered around 0, negated
         u = -beta * (ysq_avg / max(rms_sq, 0.01) * 0.5 - 0.5)
 
         y[n] = sin(phase + u)
@@ -78,29 +78,8 @@ function mag_spectrum(x)
     mag ./ maximum(mag)
 end
 
-# Test with inharmonicity
 beta = 2.0
-# k_values = [0.0, 0.02, 0.05, -0.02]
-
-# println("Testing RPM Saw/Square with Inharmonicity (canonical implementations)")
-# println("f0 = $f0 Hz, beta = $beta\n")
-
-# for k in k_values
-#     y_saw = rpm_saw(omega, beta, N; k=k)[discard:end]
-#     y_sqr = rpm_sqr(omega, beta, N; k=k)[discard:end]
-
-#     spec_saw = mag_spectrum(y_saw)
-#     spec_sqr = mag_spectrum(y_sqr)
-
-#     saw_harmonics = sum(20 .* log10.(spec_saw .+ 1e-9) .> -40)
-#     sqr_harmonics = sum(20 .* log10.(spec_sqr .+ 1e-9) .> -40)
-
-#     k_label = k == 0.0 ? "harmonic" : (k > 0 ? "tight/sharp" : "loose/flat")
-#     println("k = $k ($k_label): saw harmonics = $saw_harmonics, sqr harmonics = $sqr_harmonics")
-# end
-
-# Generate comparison plots: harmonic vs inharmonic
-k_inharm = -0.5
+k_inharm = -0.3
 
 y_saw_harm = rpm_saw(omega, beta, N; k=0.0)[discard:end]
 y_saw_inharm = rpm_saw(omega, beta, N; k=k_inharm)[discard:end]
