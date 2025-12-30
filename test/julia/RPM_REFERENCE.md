@@ -17,11 +17,11 @@ function rpm_saw(omega, beta, N; alpha=0.001, k=0.0)
         n1, n2, n3 = n-1, max(n-2, 1), max(n-3, 1)
 
         # Inharmonicity: curvature-based frequency modulation
-        # Uses abs(curv_norm) to preserve spectral slope
+        # Uses tanh soft-limiting to preserve spectral slope at high k
         curv = y[n1] - 2*y[n2] + y[n3]
         curv_rms += 0.001 * (curv * curv - curv_rms)
         curv_norm = curv / sqrt(max(curv_rms, 1e-6))
-        phase += omega * (1.0 + k * abs(curv_norm))
+        phase += omega * (1.0 + k * abs(tanh(curv_norm)))
 
         # Linear feedback (2-point TPT average)
         y_avg = 0.5 * (y[n1] + y[n2])
@@ -53,11 +53,11 @@ function rpm_sqr(omega, beta, N; alpha=0.001, k=0.0)
         n1, n2, n3 = n-1, max(n-2, 1), max(n-3, 1)
 
         # Inharmonicity: curvature-based frequency modulation
-        # Uses abs(curv_norm) to preserve spectral slope
+        # Uses tanh soft-limiting to preserve spectral slope at high k
         curv = y[n1] - 2*y[n2] + y[n3]
         curv_rms += 0.001 * (curv * curv - curv_rms)
         curv_norm = curv / sqrt(max(curv_rms, 1e-6))
-        phase += omega * (1.0 + k * abs(curv_norm))
+        phase += omega * (1.0 + k * abs(tanh(curv_norm)))
 
         # Squared feedback (2-point TPT average)
         ysq_avg = 0.5 * (y[n1]^2 + y[n2]^2)
@@ -90,7 +90,7 @@ end
 |-----------|-------------|-------|---------|
 | `omega` | Carrier frequency in rad/sample (`2π * f0 / fs`) | — | — |
 | `beta` | Feedback strength (positive, negated in formula) | 0.5 to 3.0 | 1.5 |
-| `k` | Inharmonicity coefficient | -0.1 to +0.1 | 0.0 |
+| `k` | Inharmonicity coefficient | -0.2 to +0.2 | 0.0 |
 | `alpha` | Power tracking smoothing coefficient | 0.0001 to 0.01 | 0.001 |
 
 **Beta convention:** Beta is positive (e.g., `1.5`), and the formulas use `-beta`.
@@ -121,7 +121,7 @@ The `k` parameter controls partial stretching via curvature-based frequency modu
 
 Curvature (2nd derivative) scales as h² for harmonic h, so higher harmonics experience more frequency shift.
 
-**Why `abs(curv_norm)` instead of `curv_norm²`:** Using the absolute value (linear scaling) instead of squared preserves the spectral slope of the waveform. Squared curvature causes excessive high-frequency rolloff (~9 dB/oct loss) by disrupting the phase coherence needed for harmonic buildup. The absolute value provides inharmonic stretching while maintaining the characteristic brightness of saw/square waves.
+**Why `tanh(curv_norm)`:** The `tanh` soft-limits the normalized curvature to ±1, preventing phase runaway at high k values. Without limiting, large k values (>0.1) cause severe spectral rolloff (up to 18 dB/oct loss for saw) by disrupting phase coherence. With `tanh`, the spectral slope stays within ±0.2 dB of the k=0 reference across the full ±0.2 range. The absolute value ensures the frequency always shifts in the same direction (sharp for k>0, flat for k<0).
 
 ## Signal Flow
 
@@ -138,9 +138,9 @@ Curvature (2nd derivative) scales as h² for harmonic h, so higher harmonics exp
                               └────────┬────────┘
                                        │
                                        ▼
-┌─────────┐    ┌─────────────────────────────────────┐    ┌─────────┐
-│  omega  │───▶│  phase += omega * (1 + k * |curv|)  │───▶│  sin()  │───▶ y[n]
-└─────────┘    └─────────────────────────────────────┘    └────┬────┘
+┌─────────┐    ┌───────────────────────────────────────────┐    ┌─────────┐
+│  omega  │───▶│  phase += omega * (1 + k * |tanh(curv)|)  │───▶│  sin()  │───▶ y[n]
+└─────────┘    └───────────────────────────────────────────┘    └────┬────┘
                                                               │
                         ┌─────────────────────────────────────┘
                         │

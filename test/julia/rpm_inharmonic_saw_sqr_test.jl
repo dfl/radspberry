@@ -18,11 +18,11 @@ function rpm_saw(omega, beta, N; alpha=0.001, k=0.0)
         n1, n2, n3 = n-1, max(n-2, 1), max(n-3, 1)
 
         # Inharmonicity: curvature-based frequency modulation
-        # Uses abs(curv_norm) instead of curv_norm² to preserve spectral slope
+        # Uses tanh soft-limiting to preserve spectral slope at high k
         curv = y[n1] - 2*y[n2] + y[n3]
         curv_rms += 0.001 * (curv * curv - curv_rms)
         curv_norm = curv / sqrt(max(curv_rms, 1e-6))
-        phase += omega * (1.0 + k * abs(curv_norm))
+        phase += omega * (1.0 + k * abs(tanh(curv_norm)))
 
         # Linear feedback (2-point TPT average)
         y_avg = 0.5 * (y[n1] + y[n2])
@@ -51,11 +51,11 @@ function rpm_sqr(omega, beta, N; alpha=0.001, k=0.0)
         n1, n2, n3 = n-1, max(n-2, 1), max(n-3, 1)
 
         # Inharmonicity: curvature-based frequency modulation
-        # Uses abs(curv_norm) instead of curv_norm² to preserve spectral slope
+        # Uses tanh soft-limiting to preserve spectral slope at high k
         curv = y[n1] - 2*y[n2] + y[n3]
         curv_rms += 0.001 * (curv * curv - curv_rms)
         curv_norm = curv / sqrt(max(curv_rms, 1e-6))
-        phase += omega * (1.0 + k * abs(curv_norm))
+        phase += omega * (1.0 + k * abs(tanh(curv_norm)))
 
         # Squared feedback (2-point TPT average)
         ysq_avg = 0.5 * (y[n1]^2 + y[n2]^2)
@@ -100,7 +100,7 @@ beta = 2.0
 # end
 
 # Generate comparison plots: harmonic vs inharmonic
-k_inharm = 0.2
+k_inharm = -0.5
 
 y_saw_harm = rpm_saw(omega, beta, N; k=0.0)[discard:end]
 y_saw_inharm = rpm_saw(omega, beta, N; k=k_inharm)[discard:end]
